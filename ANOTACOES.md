@@ -21,6 +21,7 @@ escrevendo ou ditando uma frase solta. Nasceu como resposta ao "Meu Assessor"
 | Inteligência | **Regras**, sem IA | Funciona sem internet e sem depender de conta nem de chave paga |
 | Alarme na hora certa | **Delegado ao calendário do celular** (`.ics`) | O iPhone não deixa PWA agendar aviso; o calendário nativo faz isso perfeito |
 | Hospedagem | GitHub Pages | Grátis, permanente, o código fica dele |
+| Conta | **pimentel-code** (pessoal), não a do cartório | O Prumo é pessoal |
 | Estratégia | Fase 1 agora, fase 2 depois de usar | Ajustar com base no uso real, não no palpite |
 
 ## Os arquivos
@@ -88,13 +89,28 @@ sendo no aparelho.
 
 Os três primeiros têm prova que **falha** se alguém desfizer a correção.
 
+## No ar desde 09/09/2026
+
+**https://pimentel-code.github.io/prumo/**
+
+Repositório público em `github.com/pimentel-code/prumo`, conta pessoal
+(a `2RIcartorio` segue guardada no `gh`; `gh auth switch` alterna).
+Os commits usam o e-mail-máscara do GitHub, não o Gmail dele.
+
+As 15 provas de navegador rodam também contra o site publicado:
+
+```
+PRUMO_URL=https://pimentel-code.github.io/prumo/ npx playwright test
+```
+
+Caminhos nas provas são **relativos** (`index.html`, não `/index.html`) — com
+barra inicial o GitHub Pages perde a subpasta `/prumo/` e nada carrega.
+
 ## O que falta
 
-1. **`gh auth login`** — o único passo que depende dele. Sem isso não dá para
-   publicar no GitHub Pages.
-2. **Publicar**: criar o repositório `prumo`, subir os arquivos, ligar o Pages,
-   e passar o endereço com o passo a passo de instalação no iPhone.
-3. **Decidir sobre o botão de microfone dentro do app.** Hoje o ditado é pelo
+1. **Instalar no iPhone**: abrir o endereço **no Safari** (não no Chrome),
+   Compartilhar → Adicionar à Tela de Início.
+2. **Decidir sobre o botão de microfone dentro do app.** Hoje o ditado é pelo
    microfone do teclado, que funciona sempre e até sem internet no iPhone novo.
    Um botão próprio economizaria um toque, mas no iPhone usaria os servidores da
    Apple, ou seja, exigiria internet. Ficou a pergunta na mesa.

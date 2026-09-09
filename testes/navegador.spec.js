@@ -6,7 +6,7 @@ const { test, expect } = require('@playwright/test');
 
 /* Abre o app sempre limpo, como se fosse a primeira vez. */
 async function abrirLimpo(page) {
-  await page.goto('/index.html');
+  await page.goto('index.html');
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await expect(page.locator('#campoEntrada')).toBeVisible();
@@ -217,12 +217,12 @@ test('nenhuma das quatro telas dá erro no console', async ({ page }) => {
 test('todo arquivo da lista offline existe no servidor', async ({ page, request }) => {
   // Se um só arquivo da lista der 404, o addAll falha inteiro e o app
   // deixa de funcionar sem internet — sem avisar ninguém.
-  const lista = await request.get('/sw.js').then(r => r.text())
+  const lista = await request.get('sw.js').then(r => r.text())
     .then(t => [...t.matchAll(/'\.\/([^']*)'/g)].map(m => m[1]).filter(Boolean));
 
   expect(lista.length).toBeGreaterThan(5);
   for (const arquivo of lista) {
-    const r = await request.get('/' + arquivo);
+    const r = await request.get(arquivo);
     expect(r.status(), 'faltou no servidor: ' + arquivo).toBe(200);
   }
 });
