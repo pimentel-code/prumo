@@ -46,7 +46,53 @@ test('gasto ditado vira lançamento na aba Dinheiro', async ({ page }) => {
   await expect(abaAtiva(page)).toContainText('Dinheiro');
   await expect(page.locator('.item-titulo')).toContainText(/luz/i);
   await expect(page.locator('.valor.saiu')).toContainText('180,00');
-  await expect(page.locator('.resumo')).toContainText('R$ 180,00');
+  await expect(page.locator('.resumo')).toContainText('180,00');
+});
+
+test('a barra de busca só aparece quando se toca na lupa', async ({ page }) => {
+  const barra = page.locator('#linhaBusca');
+  await expect(barra).toBeHidden();          // atributo hidden E invisível de fato
+  await page.click('#btBusca');
+  await expect(barra).toBeVisible();
+  await page.click('#btBusca');
+  await expect(barra).toBeHidden();
+});
+
+test('nenhuma tela rola de lado, nem com valor alto', async ({ page }) => {
+  // Rolagem lateral no celular faz a tela inteira escorregar ao passar o dedo.
+  await page.evaluate(() => {
+    const item = (t, v, c, dia) => ({ id:'t'+Math.random(), tipo:t, titulo:'financiamento do apartamento',
+      valor:v, categoria:c, data:dia, hora:null, feito:false, texto:'', criadoEm:new Date().toISOString() });
+    const hoje = new Date().toISOString().slice(0, 10);
+    localStorage.setItem('prumo.dados.v1', JSON.stringify({
+      itens: [item('receita', 987654.32, 'Salário', hoje), item('gasto', 3874.19, 'Casa', hoje)],
+      aprendidas: {}, ultimoBackup: null }));
+  });
+  await page.reload();
+
+  for (const aba of ['hoje', 'dinheiro', 'agenda', 'tarefas']) {
+    await page.click(`.aba[data-aba="${aba}"]`);
+    const folga = await page.evaluate(() =>
+      document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(folga, 'a aba ' + aba + ' rola de lado').toBeLessThanOrEqual(0);
+  }
+});
+
+test('os totais do mês cabem inteiros em valores reais', async ({ page }) => {
+  await page.evaluate(() => {
+    const item = (t, v, c) => ({ id:'t'+Math.random(), tipo:t, titulo:'x', valor:v, categoria:c,
+      data:new Date().toISOString().slice(0,10), hora:null, feito:false, texto:'', criadoEm:'' });
+    localStorage.setItem('prumo.dados.v1', JSON.stringify({
+      itens: [item('receita', 99999.99, 'Salário'), item('gasto', 12480.55, 'Casa')],
+      aprendidas: {}, ultimoBackup: null }));
+  });
+  await page.reload();
+  await page.click('.aba[data-aba="dinheiro"]');
+
+  const caixas = await page.locator('.resumo .numero').evaluateAll(ns =>
+    ns.map(n => ({ texto: n.textContent, cortado: n.scrollWidth > n.clientWidth + 1 })));
+  expect(caixas).toHaveLength(3);
+  for (const c of caixas) expect(c.cortado, 'cortou: ' + c.texto).toBe(false);
 });
 
 test('compromisso com hora vai para a Agenda', async ({ page }) => {
@@ -109,6 +155,41 @@ test('trocar o tipo na confirmação muda os campos oferecidos', async ({ page }
 
   await page.click('.chip[data-tipo="nota"]');
   await expect(page.locator('#c_data')).toHaveCount(0);  // anotação não tem data
+});
+
+test('os botões têm o tamanho mínimo para o dedo (44 px)', async ({ page }) => {
+  await anotar(page, 'paguei 180 de conta de luz');
+  await guardar(page);
+
+  const pequenos = await page.evaluate(() => {
+    const alvos = ['#btBusca', '#btAjustes', '.mes .icone-botao', '.aba'];
+    const fora = [];
+    for (const sel of alvos) {
+      for (const e of document.querySelectorAll(sel)) {
+        const r = e.getBoundingClientRect();
+        if (r.width < 44 || r.height < 44) {
+          fora.push(sel + ' ' + Math.round(r.width) + 'x' + Math.round(r.height));
+        }
+      }
+    }
+    return fora;
+  });
+  expect(pequenos).toEqual([]);
+});
+
+test('marcar feito funciona tocando um pouco fora do quadradinho', async ({ page }) => {
+  // O quadradinho tem 24 px de desenho, mas 44 px de área sensível ao toque.
+  await anotar(page, 'lembrar de comprar ração');
+  await guardar(page);
+
+  const caixa = await page.locator('.marcador').first().boundingBox();
+  const meio = { x: caixa.x + caixa.width / 2, y: caixa.y + caixa.height / 2 };
+
+  await page.mouse.click(meio.x, meio.y + 16);   // 16 px abaixo do desenho
+  await expect(page.locator('.item.feito')).toHaveCount(1);
+
+  await page.mouse.click(meio.x - 16, meio.y);   // e 16 px à esquerda
+  await expect(page.locator('.item.feito')).toHaveCount(0);
 });
 
 test('nenhuma das quatro telas dá erro no console', async ({ page }) => {

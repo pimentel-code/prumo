@@ -38,6 +38,11 @@ function fmtMoeda(n) {
   return (n || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 }
 
+/* Só o número, sem o "R$ ". Usado onde o rótulo já diz que é dinheiro. */
+function fmtMoedaNua(n) {
+  return fmtMoeda(n).replace(/^R\$[\s\u00a0]*/, '');
+}
+
 function fmtDataCurta(iso) {
   if (!iso) return '';
   const d = diasAte(iso), dt = dataDe(iso);
@@ -297,9 +302,9 @@ function telaDinheiro() {
       <button class="icone-botao" data-acao="mes" data-passo="1" aria-label="Próximo mês">›</button>
     </div>
     <div class="resumo">
-      <div class="caixa"><div class="rotulo">Entrou</div><div class="numero entrou">${esc(fmtMoeda(entrou))}</div></div>
-      <div class="caixa"><div class="rotulo">Saiu</div><div class="numero saiu">${esc(fmtMoeda(saiu))}</div></div>
-      <div class="caixa"><div class="rotulo">Sobrou</div><div class="numero">${esc(fmtMoeda(entrou - saiu))}</div></div>
+      <div class="caixa"><div class="rotulo">Entrou</div><div class="numero entrou">${esc(fmtMoedaNua(entrou))}</div></div>
+      <div class="caixa"><div class="rotulo">Saiu</div><div class="numero saiu">${esc(fmtMoedaNua(saiu))}</div></div>
+      <div class="caixa"><div class="rotulo">Sobrou</div><div class="numero ${entrou - saiu < 0 ? 'saiu' : ''}">${esc(fmtMoedaNua(entrou - saiu))}</div></div>
     </div>`;
 
   if (!doMes.length) return h + vazio('Mês em branco', 'Nada lançado neste mês.');

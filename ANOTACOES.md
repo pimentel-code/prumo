@@ -1,6 +1,6 @@
 # Prumo — anotações do projeto
 
-Última sessão: **7 de setembro de 2026**.
+Última sessão: **9 de setembro de 2026**.
 
 ## O que é
 
@@ -56,12 +56,37 @@ que vem — `consulta 12/03` dita em setembro marca 2027.
 ## Testes
 
 ```
-~/Prumo/testes/rodar.sh
+~/Prumo/testes/rodar.sh            tudo (leva ~10 s)
+~/Prumo/testes/rodar.sh rapido     só as instantâneas, sem navegador
 ```
 
-24 frases no interpretador e 14 provas no app inteiro (telas, somas, atraso,
-escape de HTML perigoso, ida e volta do backup, aprendizado de categoria).
-Rodam com `gjs`, que já vem no Fedora — não há Node instalado nesta máquina.
+São três camadas:
+
+1. **24 frases no interpretador** — `gjs`, instantâneo.
+2. **14 provas no app inteiro** com navegador simulado — `gjs`, instantâneo.
+3. **15 provas num navegador de verdade** (Playwright), em tela de iPhone e de
+   Android ao mesmo tempo. É a camada que alcança o que as outras não alcançam:
+   toque nos botões, troca de telas, dado que sobrevive a reabrir o app,
+   tamanho dos alvos de toque, e **o app abrindo sem internet**.
+
+O Node.js foi instalado em 09/09/2026 (`pkexec dnf install nodejs npm`) só para
+isso. Se algum dia o Node sumir, o `rodar.sh` avisa e pula a camada 3 sozinho —
+as duas primeiras continuam funcionando.
+
+O Safari de verdade não dá para testar aqui: o WebKit do Playwright espera
+bibliotecas do Ubuntu que não existem no Fedora. O teste no iPhone continua
+sendo no aparelho.
+
+## Consertado em 09/09/2026 (achados pelas provas de navegador)
+
+| O que estava errado | Por quê |
+|---|---|
+| A barra de busca aparecia **sempre**, sem tocar na lupa | `.entrada { display: flex }` vencia o `hidden` do HTML |
+| A tela Dinheiro **rolava de lado** com valores altos | `1fr` na grade tem largura mínima automática |
+| Marcar tarefa feita: alvo de 24×24 px | O dedo erra; agora são 44×44 invisíveis em volta do desenho de 24 |
+| Setas de mês ‹ ›: alvo de 20×31 px | Idem — agora 44×44 |
+
+Os três primeiros têm prova que **falha** se alguém desfizer a correção.
 
 ## O que falta
 
