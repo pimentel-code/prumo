@@ -106,6 +106,29 @@ PRUMO_URL=https://pimentel-code.github.io/prumo/ npx playwright test
 Caminhos nas provas são **relativos** (`index.html`, não `/index.html`) — com
 barra inicial o GitHub Pages perde a subpasta `/prumo/` e nada carrega.
 
+## Como o aviso funciona (leia antes de reclamar que não tocou)
+
+**O Prumo não toca alarme sozinho, e isso é de propósito.** O iPhone não deixa
+uma página instalada agendar aviso, e notificação de verdade exigiria um
+servidor — o que contraria "dados só no aparelho". Quem avisa é o **calendário
+do próprio celular**: o botão **Pôr no calendário** gera um arquivo `.ics` com
+alarme dentro, e o iPhone assume dali para a frente.
+
+- Item **com hora** → evento na hora certa, alarme **30 min antes**.
+- Item **sem hora** (tarefa "amanhã") → evento de dia inteiro, alarme **às 9h**.
+
+Corrigido em 09/09/2026, depois do primeiro uso real:
+
+| O que estava errado | Agora |
+|---|---|
+| Só **compromisso** oferecia o botão. "Me lembrar de X amanhã" vira **tarefa**, e tarefa não tinha caminho nenhum para o alarme | Tarefa com prazo também oferece |
+| Ele precisava descobrir o botão sozinho, na lista | Ao guardar algo com data, aparece na hora: *"Guardado. Quer ser avisado na hora?"* |
+| "me lembrar de pagar o IPTU" virava o título torto **"Me de pagar o IPTU"** | Vira **"Pagar o IPTU"** |
+
+O título torto era ordem de lista: `acharPalavra` devolve a **primeira** que
+casa, e `'lembrar'` vinha antes de `'me lembrar de'`. As frases compridas agora
+vêm primeiro.
+
 ## O que falta
 
 1. **Instalar no iPhone**: abrir o endereço **no Safari** (não no Chrome),

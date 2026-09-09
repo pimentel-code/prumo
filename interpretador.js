@@ -33,8 +33,15 @@ const PALAVRAS = {
   gasto:   ['paguei','gastei','comprei','custou','torrei','saiu','gasto de',
             'despesa'],
   // Verbos que só anunciam a tarefa — somem do título ("lembrar de X" vira "X").
-  tarefaMeta: ['lembrar','lembre','me lembra','me lembre','preciso','tenho que',
-               'nao esquecer','nao posso esquecer','anotar que','anota que'],
+  // A ordem importa: acharPalavra devolve a PRIMEIRA que casar, então as
+  // frases compridas vêm antes. Sem isso, "me lembrar de pagar o IPTU"
+  // marcava só "lembrar" e sobrava o título torto "Me de pagar o IPTU".
+  tarefaMeta: ['nao me deixe esquecer','nao posso esquecer','nao esquecer',
+               'me lembrar de','me lembre de','me lembra de',
+               'me lembrar','me lembre','me lembra',
+               'lembrar de','lembre de','lembra de',
+               'lembrar','lembre','lembra',
+               'preciso','tenho que','anotar que','anota que'],
   // Verbos que SÃO a tarefa — ficam no título ("ligar para o contador").
   tarefaAcao: ['resolver','pagar','comprar','ligar','mandar','enviar','buscar','pegar',
                'levar','marcar','agendar','procurar','conferir','revisar','assinar',
@@ -327,7 +334,7 @@ function interpretar(textoOriginal, opcoes = {}) {
 
   // Tira do título só o verbo que revelou a intenção — o resto do texto fica.
   const marcaVerbo = (tipo === 'receita' && receita) || (tipo === 'gasto' && gasto) ||
-                     (tipo === 'tarefa' && tarefaMeta) || null;
+                     (['tarefa', 'compromisso', 'nota'].includes(tipo) && tarefaMeta) || null;
   if (marcaVerbo) f.marcar(marcaVerbo.index, marcaVerbo.index + marcaVerbo.tamanho);
 
   const sobra = f.sobra();

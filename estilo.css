@@ -75,6 +75,16 @@ body {
 /* O hidden do HTML precisa vencer qualquer display abaixo. */
 [hidden] { display: none !important; }
 
+/* Recado curto depois de guardar: o caminho para o alarme, na hora. */
+.recado {
+  display: flex; align-items: center; gap: 10px;
+  background: var(--acento-claro); border: 1px solid var(--acento);
+  border-radius: 14px; padding: 8px 8px 8px 14px; margin-top: 10px;
+}
+.recado-texto { flex: 1; min-width: 0; font-size: 14px; color: var(--acento); font-weight: 500; }
+.recado .mini { margin-top: 0; flex: none; }
+.recado .icone-botao { min-width: 40px; min-height: 40px; color: var(--acento); font-size: 17px; font-weight: 700; }
+
 /* ---------- caixa de entrada ---------- */
 
 .entrada { display: flex; gap: 8px; margin-top: 10px; }

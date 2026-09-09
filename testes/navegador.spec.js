@@ -107,7 +107,8 @@ test('compromisso com hora vai para a Agenda', async ({ page }) => {
   await expect(abaAtiva(page)).toContainText('Agenda');
   await expect(page.locator('.item-titulo')).toContainText(/dentista/i);
   await expect(page.locator('.item-info')).toContainText('15:00');
-  await expect(page.locator('[data-acao="calendario"]')).toBeVisible();
+  await page.click('[data-acao="fechar-recado"]');
+  await expect(page.locator('#conteudo [data-acao="calendario"]')).toBeVisible();
 });
 
 test('tarefa aparece em Tarefas e pode ser marcada como feita', async ({ page }) => {
@@ -122,6 +123,68 @@ test('tarefa aparece em Tarefas e pode ser marcada como feita', async ({ page })
   await item.locator('[data-acao="feito"]').click();
   await expect(page.locator('.item.feito')).toHaveCount(1);
   await expect(page.locator('.secao-titulo').filter({ hasText: 'Feito' })).toBeVisible();
+});
+
+test('tarefa com prazo também oferece o calendário', async ({ page }) => {
+  // O Prumo não toca alarme sozinho: quem avisa é o calendário do celular.
+  // Antes, só compromisso oferecia esse caminho — tarefa não tinha nenhum.
+  await anotar(page, 'me lembrar de pagar o IPTU amanhã');
+  await expect(page.locator('.chip.ativo')).toHaveText('Tarefa');
+  await expect(page.locator('#c_titulo')).toHaveValue('Pagar o IPTU');
+  await guardar(page);
+
+  // Na hora, pelo recado; e depois de dispensá-lo, pelo cartão da tarefa.
+  await expect(page.locator('.recado [data-acao="calendario"]')).toBeVisible();
+  await page.click('[data-acao="fechar-recado"]');
+  await expect(page.locator('#conteudo [data-acao="calendario"]')).toBeVisible();
+});
+
+test('depois de guardar algo com data, o aviso é oferecido na hora', async ({ page }) => {
+  await anotar(page, 'me lembrar de pagar o IPTU amanhã');
+  await guardar(page);
+
+  const recado = page.locator('.recado');
+  await expect(recado).toBeVisible();
+  await expect(recado).toContainText('Quer ser avisado');
+  // Enquanto o recado oferece o calendário, o cartão não repete o mesmo botão.
+  await expect(page.locator('#conteudo [data-acao="calendario"]')).toHaveCount(0);
+
+  await page.click('[data-acao="fechar-recado"]');
+  await expect(recado).toHaveCount(0);
+  await expect(page.locator('#conteudo [data-acao="calendario"]')).toBeVisible();
+});
+
+test('o recado não fica preso na tela', async ({ page }) => {
+  await anotar(page, 'me lembrar de pagar o IPTU amanhã');
+  await guardar(page);
+  await expect(page.locator('.recado')).toBeVisible();
+
+  await page.click('.aba[data-aba="dinheiro"]');
+  await expect(page.locator('.recado')).toHaveCount(0);
+});
+
+test('gasto não oferece calendário — não é lembrete', async ({ page }) => {
+  await anotar(page, 'paguei 180 de conta de luz');
+  await guardar(page);
+  await expect(page.locator('.recado')).toHaveCount(0);
+  await expect(page.locator('[data-acao="calendario"]')).toHaveCount(0);
+});
+
+test('o arquivo do calendário de uma tarefa sem hora leva alarme', async ({ page }) => {
+  await anotar(page, 'me lembrar de pagar o IPTU amanhã');
+  await guardar(page);
+
+  const [baixado] = await Promise.all([
+    page.waitForEvent('download'),
+    page.click('.recado [data-acao="calendario"]')
+  ]);
+  const fs = require('fs');
+  const ics = fs.readFileSync(await baixado.path(), 'utf8');
+
+  expect(ics).toContain('SUMMARY:Pagar o IPTU');
+  expect(ics).toMatch(/DTSTART;VALUE=DATE:\d{8}/);  // dia inteiro, sem hora
+  expect(ics).toContain('BEGIN:VALARM');
+  expect(ics).toContain('TRIGGER;RELATED=START:PT9H');  // avisa às 9 da manhã
 });
 
 test('o que foi anotado sobrevive a fechar e reabrir o app', async ({ page }) => {

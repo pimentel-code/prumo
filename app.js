@@ -78,6 +78,7 @@ function ordemAgenda(a, b) {
 const App = {
   aba: 'hoje',
   rascunho: null,
+  recado: null,
   busca: null,
   mostrarPassados: false,
   mesRef: { ano: new Date().getFullYear(), mes: new Date().getMonth() }
@@ -104,6 +105,7 @@ function aoEnviar(evento) {
   const campo = document.getElementById('campoEntrada');
   const texto = campo.value.trim();
   if (!texto) return;
+  App.recado = null;
   App.rascunho = interpretar(texto, { aprendidas: Dados.carregar().aprendidas });
   App.rascunho.categoriaOriginal = App.rascunho.categoria;
   renderConfirma();
@@ -157,7 +159,7 @@ function lerCampos(item, p) {
 
 function renderConfirma() {
   const alvo = document.getElementById('confirma');
-  if (!App.rascunho) { alvo.innerHTML = ''; return; }
+  if (!App.rascunho) { alvo.innerHTML = App.recado ? recadoHTML() : ''; return; }
   const r = App.rascunho;
   const chips = Object.keys(TIPOS).map(t =>
     `<button type="button" class="chip${t === r.tipo ? ' ativo' : ''}" data-acao="tipo" data-tipo="${t}">${TIPOS[t].nome}</button>`
@@ -169,6 +171,16 @@ function renderConfirma() {
         <button type="button" data-acao="cancelar">Cancelar</button>
         <button type="button" class="principal" data-acao="salvar">Guardar</button>
       </div>
+    </div>`;
+}
+
+/* O Prumo não toca alarme sozinho — quem avisa é o calendário do celular.
+   Por isso, ao guardar algo com data, o caminho para o aviso aparece na hora. */
+function recadoHTML() {
+  return `<div class="recado">
+      <div class="recado-texto">Guardado. Quer ser avisado na hora?</div>
+      <button class="mini" data-acao="calendario" data-id="${App.recado}">Pôr no calendário</button>
+      <button class="icone-botao" data-acao="fechar-recado" aria-label="Dispensar">✕</button>
     </div>`;
 }
 
@@ -193,7 +205,9 @@ function salvarRascunho() {
     Dados.aprender(item.texto, item.categoria);
   }
   delete item.categoriaOriginal;
-  Dados.adicionar(item);
+  const salvo = Dados.adicionar(item);
+  App.recado = (salvo.data && (salvo.tipo === 'tarefa' || salvo.tipo === 'compromisso'))
+    ? salvo.id : null;
   App.rascunho = null;
   document.getElementById('campoEntrada').value = '';
   if (item.tipo === 'gasto' || item.tipo === 'receita') App.aba = 'dinheiro';
@@ -230,7 +244,7 @@ function itemHTML(item, op) {
     valor = `<div class="valor ${entrada ? 'entrou' : 'saiu'}">${entrada ? '+' : '−'} ${esc(fmtMoeda(item.valor).replace('R$ ', ''))}</div>`;
   }
 
-  const calendario = op.calendario
+  const calendario = (op.calendario && item.data && !item.feito && item.id !== App.recado)
     ? `<button class="mini" data-acao="calendario" data-id="${item.id}">Pôr no calendário</button>` : '';
 
   return `<div class="${classes.join(' ')}">
@@ -277,7 +291,7 @@ function telaHoje() {
 
   let h2 = '';
   h2 += secao('Atrasado', atrasados, { marcador: true, mostrarData: true, calendario: false });
-  h2 += secao('Hoje', deHoje, { marcador: true, calendario: false });
+  h2 += secao('Hoje', deHoje, { marcador: true, calendario: true });
   if (somaHoje > 0) {
     h2 += `<div class="secao-titulo">Gasto de hoje · ${esc(fmtMoeda(somaHoje))}</div>` +
           listaHTML(gastosHoje, {});
@@ -377,7 +391,7 @@ function telaTarefas() {
 
   let h = '';
   h += secao('Atrasado', atrasadas, { marcador: true, mostrarData: true });
-  h += secao('Com prazo', comPrazo, { marcador: true, mostrarData: true });
+  h += secao('Com prazo', comPrazo, { marcador: true, mostrarData: true, calendario: true });
   h += secao('Sem prazo', semPrazo, { marcador: true });
   h += secao('Anotações', notas, { marcador: true });
   h += secao('Feito', feitas, { marcador: true, mostrarData: true });
@@ -536,6 +550,7 @@ document.addEventListener('click', evento => {
 
   if (acao === 'fundo' && evento.target === alvo) return fecharPainel();
   if (acao === 'fechar') return fecharPainel();
+  if (acao === 'fechar-recado') { App.recado = null; return render(); }
 
   if (acao === 'tipo') return trocarTipo(alvo.dataset.tipo);
   if (acao === 'cancelar') { App.rascunho = null; renderConfirma(); return; }
@@ -591,7 +606,7 @@ function iniciar() {
   document.getElementById('formEntrada').addEventListener('submit', aoEnviar);
 
   document.querySelectorAll('.aba').forEach(b => b.addEventListener('click', () => {
-    App.aba = b.dataset.aba; App.busca = null;
+    App.aba = b.dataset.aba; App.busca = null; App.recado = null;
     document.getElementById('linhaBusca').hidden = true;
     render();
   }));
