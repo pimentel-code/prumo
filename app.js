@@ -726,10 +726,10 @@ function painelEditar(id) {
     ${camposHTML(item, 'e_')}
     ${item.parcela ? `<p>Parcela ${esc(item.parcela)}. Mudar aqui muda só esta parcela.</p>` : ''}
     ${item.compra ? `<p>Registro da compra em ${item.compra}x. Ele não soma no mês: quem soma são as parcelas, a partir do mês seguinte.</p>` : ''}
-    ${item.grupo ? `<button class="opcao perigo" data-acao="excluir-grupo" data-id="${id}"><span class="op-icone">🗑️</span><div><div>Excluir a compra e todas as parcelas</div>
+    ${item.grupo && !item.compra ? `<button class="opcao perigo" data-acao="excluir-grupo" data-id="${id}"><span class="op-icone">🗑️</span><div><div>Excluir a compra e todas as parcelas</div>
       <div class="desc">Apaga a compra e as ${Dados.itens().filter(i => i.grupo === item.grupo && i.parcela).length} parcelas.</div></div></button>` : ''}
     <div class="acoes">
-      <button type="button" data-acao="excluir" data-id="${id}">${item.grupo ? 'Excluir esta' : 'Excluir'}</button>
+      <button type="button" data-acao="excluir" data-id="${id}">${item.compra ? 'Excluir a compra' : item.grupo ? 'Excluir só esta' : 'Excluir'}</button>
       <button type="button" class="principal" data-acao="salvar-edicao" data-id="${id}">Salvar</button>
     </div>`);
 }
@@ -794,7 +794,11 @@ function responderRevisao(opcao) {
   if (opcao === 'feito') Dados.atualizar(id, { feito: true });
   else if (opcao === 'amanha') Dados.atualizar(id, { data: paraISO(somarDias(new Date(), 1)) });
   else if (opcao === 'semana') Dados.atualizar(id, { data: paraISO(somarDias(new Date(), 7)) });
-  else if (opcao === 'apagar') Dados.remover(id);
+  else if (opcao === 'apagar') {
+    const item = Dados.itens().find(i => i.id === id);
+    if (item && item.compra && item.grupo) Dados.itens().filter(i => i.grupo === item.grupo).forEach(i => Dados.remover(i.id));
+    else Dados.remover(id);
+  }
   r.i++;
   painelRevisao();
 }
@@ -1084,6 +1088,14 @@ document.addEventListener('click', evento => {
     fecharPainel(); return render();
   }
   if (acao === 'excluir') {
+    const item = Dados.itens().find(i => i.id === id);
+    if (item && item.compra && item.grupo) {
+      /* Apagar a compra apaga junto as parcelas dos meses seguintes. */
+      const doGrupo = Dados.itens().filter(i => i.grupo === item.grupo);
+      const n = doGrupo.filter(i => i.parcela).length;
+      if (!confirm('Apagar a compra?' + (n ? '\n\nAs ' + n + ' parcelas dos próximos meses também somem.' : ''))) return;
+      doGrupo.forEach(i => Dados.remover(i.id)); fecharPainel(); return render();
+    }
     if (!confirm('Apagar este registro?')) return;
     Dados.remover(id); fecharPainel(); return render();
   }

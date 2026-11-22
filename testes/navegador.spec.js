@@ -398,6 +398,20 @@ test('compra parcelada vira uma parcela por mês', async ({ page }) => {
   await expect(page.locator('.valor.compra')).toHaveCount(0);
 });
 
+test('apagar a compra (botão Excluir) apaga junto as parcelas dos meses seguintes', async ({ page }) => {
+  await anotar(page, 'sapato 300 dividido em 3x');
+  await guardar(page);
+  await page.locator('.item-corpo').first().click();
+  await expect(page.locator('[data-acao="excluir"]')).toHaveText('Excluir a compra');
+  page.once('dialog', d => d.accept());
+  await page.click('[data-acao="excluir"]');
+  await expect(page.locator('.valor.compra')).toHaveCount(0);
+  for (let k = 1; k <= 3; k++) {
+    await page.click('[data-acao="mes"][data-passo="1"]');
+    await expect(page.locator('.item-info').filter({ hasText: 'parcela' })).toHaveCount(0);
+  }
+});
+
 test('"sapato de 200 reais em quatro vezes" (como o microfone escreve): R$ 50 nos 4 meses', async ({ page }) => {
   await anotar(page, 'comprei sapato de 200 reais em quatro vezes');
   await expect(page.locator('#c_parcelas')).toHaveValue('4');
