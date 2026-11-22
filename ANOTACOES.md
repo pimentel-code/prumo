@@ -249,3 +249,10 @@ O site (iPhone) continua igual, com o "Pôr no calendário".
 - Alarme reconhece "alarma", "alarmar", "me chama/chame"; título só de palavras de alarme vira "Alarme".
 - Spotify/Deezer no alarme: descartado (exige conta de desenvolvedor, internet e Premium; fere
   "dados só no aparelho"). Alternativa oferecida: escolher uma música salva no celular.
+
+## 22/11/2026 — atualização automática pelo Obtainium
+- Versão em android/versao.properties (codigo=N → versionCode N, versionName "1.N").
+- `./publicar-apk.sh "o que mudou"` (ou `prumo atualizar "..."`): provas rápidas → soma 1 na
+  versão → monta APK → commit + push (atualiza o site também) → release vN no GitHub com Prumo.apk.
+- No celular, o Obtainium acompanha https://github.com/pimentel-code/prumo e instala sozinho.
+- Primeira release: v1.2 (22/11/2026). gh no CachyOS logado em pimentel-code (2RIcartorio expirado).
