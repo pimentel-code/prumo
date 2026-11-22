@@ -89,6 +89,26 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
   const a4 = Avisos.ajustarAlarme(interpretar('dentista amanhã 15h'));
   await prova('compromisso comum NÃO vira alarme', () => !a4.alarme);
 
+  // ---- versão nova do app ----
+  globalThis.versaoInstalada = 5;
+  globalThis.ultimaRelease = { tag_name: 'v1.6', body: 'Novidades', assets: [{ name: 'Prumo.apk',
+    browser_download_url: 'https://github.com/pimentel-code/prumo/releases/download/v1.6/Prumo.apk' }] };
+  await Atualizacao.conferir(true);
+  await prova('versão liberada mais nova aparece como atualização', () => Atualizacao.nova && Atualizacao.nova.versao === '1.6');
+  await prova('faixa "Versão nova do Prumo" com botão Atualizar', () => Atualizacao.bannerHTML().includes('Versão nova do Prumo (1.6)') && Atualizacao.bannerHTML().includes('atualizar-app'));
+  await Atualizacao.instalar();
+  await prova('Atualizar baixa o APK da versão nova', () => globalThis.instalou === globalThis.ultimaRelease.assets[0].browser_download_url);
+  const antesPergunta = globalThis.perguntouGithub;
+  await Atualizacao.conferir();
+  await prova('não pergunta ao GitHub de novo em menos de 6 horas', () => globalThis.perguntouGithub === antesPergunta);
+  globalThis.versaoInstalada = 6;
+  await Atualizacao.conferir(true);
+  await prova('mesma versão instalada: nada aparece', () => !Atualizacao.nova && Atualizacao.bannerHTML() === '');
+  globalThis.ultimaRelease = null;
+  await Atualizacao.conferir(true);
+  await prova('sem versão liberada ainda: nada aparece', () => !Atualizacao.nova);
+  await prova('versão de teste mais velha nunca "atualiza" para trás', () => { globalThis.versaoInstalada = 9; return Atualizacao.codigoDe('v1.6') < 9; });
+
   // ---- "daqui a 40 minutos" e o jeito de falar do dia a dia ----
   const antes = Date.now();
   const a5 = Avisos.ajustarAlarme(interpretar('alarma para daqui a 40 minutos'));

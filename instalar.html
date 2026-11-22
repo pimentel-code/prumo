@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Instalar o Prumo</title>
+<meta name="description" content="Gastos, agenda e tarefas numa frase só. Seus dados ficam só no seu celular.">
+<meta name="theme-color" content="#0f766e">
+<link rel="icon" href="icones/icone-192.png">
+<style>
+  :root {
+    --acento: #0f766e; --acento-escuro: #0a5a53; --fundo: #f3f7f6; --cartao: #fff;
+    --texto: #10201e; --suave: #5b6b69; --linha: #dbe6e4;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --fundo: #0d1716; --cartao: #15211f; --texto: #e7f0ee; --suave: #9fb2af; --linha: #253532; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font: 17px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background: var(--fundo); color: var(--texto);
+  }
+  .topo {
+    background: linear-gradient(135deg, #2bb3a0, #0a5a53); color: #fff; text-align: center;
+    padding: 36px 20px 64px;
+  }
+  .topo img { width: 88px; height: 88px; border-radius: 22px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+  .topo h1 { margin: 14px 0 4px; font-size: 30px; }
+  .topo p { margin: 0 auto; max-width: 460px; opacity: .95; }
+  main { max-width: 560px; margin: -40px auto 40px; padding: 0 16px; }
+  .cartao {
+    background: var(--cartao); border: 1px solid var(--linha); border-radius: 22px;
+    padding: 20px; margin-bottom: 16px; box-shadow: 0 6px 20px rgba(0,0,0,.06);
+  }
+  h2 { margin: 0 0 6px; font-size: 21px; }
+  .sub { color: var(--suave); margin: 0 0 14px; font-size: 15px; }
+  .botao {
+    display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%;
+    min-height: 58px; border-radius: 16px; background: var(--acento); color: #fff;
+    font-size: 19px; font-weight: 700; text-decoration: none; border: 0;
+  }
+  .botao:active { background: var(--acento-escuro); }
+  .botao.desligado { background: var(--linha); color: var(--suave); pointer-events: none; }
+  .versao { text-align: center; color: var(--suave); font-size: 14px; margin: 8px 0 0; }
+  ol { padding: 0; margin: 18px 0 0; list-style: none; counter-reset: passo; }
+  ol li {
+    counter-increment: passo; position: relative; padding: 0 0 16px 48px; min-height: 36px;
+  }
+  ol li::before {
+    content: counter(passo); position: absolute; left: 0; top: -2px; width: 34px; height: 34px;
+    border-radius: 50%; background: color-mix(in srgb, var(--acento) 14%, var(--cartao));
+    color: var(--acento); font-weight: 800; display: grid; place-items: center;
+  }
+  @media (prefers-color-scheme: dark) { ol li::before { color: #5fd4c2; } }
+  .tela {
+    display: inline-block; margin-top: 6px; padding: 4px 10px; border-radius: 10px;
+    background: var(--fundo); border: 1px solid var(--linha); font-size: 14px; font-weight: 650;
+  }
+  .dica { font-size: 14px; color: var(--suave); display: block; margin-top: 4px; }
+  .qr { text-align: center; }
+  .qr img { width: 220px; height: 220px; background: #fff; padding: 10px; border-radius: 16px; border: 1px solid var(--linha); }
+  .privado { display: flex; gap: 12px; align-items: flex-start; }
+  .privado span { font-size: 28px; line-height: 1; }
+  .escondido { display: none; }
+  .troca { text-align: center; margin: 4px 0 18px; font-size: 15px; }
+  .troca a { color: var(--acento); font-weight: 650; }
+  @media (prefers-color-scheme: dark) { .troca a { color: #5fd4c2; } }
+</style>
+</head>
+<body>
+<header class="topo">
+  <img src="icones/icone-192.png" alt="">
+  <h1>Prumo</h1>
+  <p>Gastos, agenda e tarefas numa frase só. É só escrever ou falar:
+    <em>"almoço 32"</em>, <em>"dentista quinta 15h"</em>, <em>"alarma daqui a 40 minutos"</em>.</p>
+</header>
+
+<main>
+  <!-- PC: mostra o QR para abrir no celular -->
+  <section class="cartao qr escondido" id="noPC">
+    <h2>Abra esta página no celular</h2>
+    <p class="sub">Aponte a câmera do celular para o código:</p>
+    <img src="icones/convite-qr.svg" alt="QR code do convite do Prumo">
+  </section>
+
+  <section class="cartao" id="android">
+    <h2>📱 Android</h2>
+    <p class="sub">Instala uma vez. Quando sair versão nova, o próprio Prumo avisa.</p>
+    <a class="botao" id="baixar" href="https://github.com/pimentel-code/prumo/releases/latest/download/Prumo.apk">⬇️ Baixar o Prumo</a>
+    <p class="versao" id="versao">&nbsp;</p>
+    <ol>
+      <li>Toque em <strong>Baixar o Prumo</strong>.
+        <span class="dica">Se o navegador disser que o arquivo "pode ser perigoso", toque em
+        <span class="tela">Baixar mesmo assim</span>. Ele avisa isso de todo app que não vem da Play Store.</span></li>
+      <li>Quando terminar, toque em <span class="tela">Abrir</span>.
+        <span class="dica">Se não aparecer, abra a pasta <strong>Downloads</strong> e toque em <strong>Prumo.apk</strong>.</span></li>
+      <li>Só da primeira vez, o Android pergunta se pode instalar apps baixados pelo navegador.
+        Toque em <span class="tela">Configurações</span>, ligue <span class="tela">Permitir desta fonte</span> e volte.</li>
+      <li>Toque em <span class="tela">Instalar</span>.
+        <span class="dica">Se aparecer o Play Protect dizendo "app desconhecido", toque em
+        <span class="tela">Mais detalhes</span> → <span class="tela">Instalar mesmo assim</span>.</span></li>
+      <li>Abra o Prumo. Ele mostra como usar logo na primeira vez.</li>
+    </ol>
+  </section>
+
+  <p class="troca" id="trocaIphone"><a href="#iphone" data-mostra="iphone">Tem iPhone? Veja aqui</a></p>
+
+  <section class="cartao" id="iphone">
+    <h2>🍎 iPhone</h2>
+    <p class="sub">No iPhone o Prumo funciona pelo Safari e se atualiza sozinho.</p>
+    <a class="botao" href="./">Abrir o Prumo</a>
+    <ol>
+      <li>Abra esta página no <strong>Safari</strong> e toque em <strong>Abrir o Prumo</strong>.</li>
+      <li>Toque no botão <span class="tela">Compartilhar</span> (o quadrado com a setinha para cima).</li>
+      <li>Escolha <span class="tela">Adicionar à Tela de Início</span> → <span class="tela">Adicionar</span>.</li>
+      <li>Pronto: o ícone do Prumo fica junto dos outros apps.
+        <span class="dica">No iPhone os lembretes vão pelo Calendário do próprio celular: o Prumo oferece o botão na hora de guardar.</span></li>
+    </ol>
+  </section>
+
+  <p class="troca escondido" id="trocaAndroid"><a href="#android" data-mostra="android">Tem Android? Veja aqui</a></p>
+
+  <section class="cartao privado">
+    <span>🔒</span>
+    <div><strong>Seus dados ficam só no seu celular.</strong><br>
+    <span class="sub" style="font-size:15px">Sem cadastro, sem senha, sem propaganda. Ninguém, nem quem te mandou este link, vê o que você anota.
+    Para não perder nada ao trocar de celular, use <em>Ajustes → Fazer backup</em>.</span></div>
+  </section>
+</main>
+
+<script>
+  // Mostra primeiro o que serve para o aparelho de quem abriu.
+  const ua = navigator.userAgent;
+  const ehIphone = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const ehAndroid = /Android/.test(ua);
+  const $ = id => document.getElementById(id);
+  if (!ehIphone && !ehAndroid) $('noPC').classList.remove('escondido');
+  if (ehIphone) {
+    $('android').classList.add('escondido'); $('trocaIphone').classList.add('escondido');
+    $('trocaAndroid').classList.remove('escondido');
+  } else if (ehAndroid) {
+    $('iphone').classList.add('escondido');
+  } else {
+    $('trocaIphone').classList.add('escondido');
+  }
+  document.addEventListener('click', e => {
+    const a = e.target.closest('[data-mostra]');
+    if (!a) return;
+    $(a.dataset.mostra).classList.remove('escondido');
+    a.parentElement.classList.add('escondido');
+  });
+
+  // Mostra qual versão vai ser baixada (a última liberada, nunca a de teste).
+  fetch('https://api.github.com/repos/pimentel-code/prumo/releases/latest')
+    .then(r => r.ok ? r.json() : null)
+    .then(j => {
+      if (j && j.tag_name) { $('versao').textContent = 'Versão ' + j.tag_name.replace(/^v/, '') + ' · grátis'; return; }
+      $('versao').textContent = 'A primeira versão está quase pronta. Volte daqui a pouco.';
+      $('baixar').classList.add('desligado');
+    })
+    .catch(() => { $('versao').textContent = 'Grátis'; });
+</script>
+</body>
+</html>

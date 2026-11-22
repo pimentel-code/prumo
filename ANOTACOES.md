@@ -256,3 +256,19 @@ O site (iPhone) continua igual, com o "Pôr no calendário".
   versão → monta APK → commit + push (atualiza o site também) → release vN no GitHub com Prumo.apk.
 - No celular, o Obtainium acompanha https://github.com/pimentel-code/prumo e instala sozinho.
 - Primeira release: v1.2 (22/11/2026). gh no CachyOS logado em pimentel-code (2RIcartorio expirado).
+
+## 22/11/2026 — compartilhar com amigos: teste × estável, aviso no app, convite
+- Dois canais no GitHub:
+  - `prumo atualizar "o que mudou"` → pré-release (TESTE). Só o Obtainium do dono, com
+    "incluir pré-lançamentos", recebe. Vai para o ramo main.
+  - `prumo aprovar` → vira release "latest" (ESTÁVEL) e empurra o código dela para o ramo
+    `estavel`, de onde sai o site (GitHub Pages trocado de main para estavel em 22/11).
+- atualizacao.js: o app Android pergunta à API do GitHub (releases/latest, nunca pré-release)
+  no máximo a cada 6 h; versão maior que o versionCode instalado → faixa "Versão nova" em
+  qualquer aba. "Atualizar": PrumoPlugin.instalarAtualizacao baixa o APK (só de
+  github.com/pimentel-code/prumo/releases/download/) para o cache e abre o instalador.
+  Primeira vez pede "Permitir desta fonte" (REQUEST_INSTALL_PACKAGES). Ajustes → Procurar atualização.
+- instalar.html: página de convite (Android: baixa releases/latest/download/Prumo.apk com passo
+  a passo; iPhone: Safari → Tela de Início; PC: QR code). QR em icones/convite-qr.{svg,png}
+  (gerado com o pacote npm qrcode). `prumo convite` mostra link e QR.
+- Só existe no ar depois do primeiro `prumo aprovar` (a página mora no ramo estavel).

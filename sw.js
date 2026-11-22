@@ -1,9 +1,9 @@
 /* sw.js — guarda o app no aparelho para funcionar sem internet. */
 
-const VERSAO = 'prumo-v3';
+const VERSAO = 'prumo-v4';
 const ARQUIVOS = [
   './', './index.html', './estilo.css',
-  './interpretador.js', './dados.js', './calendario.js', './avisos.js', './tutorial.js', './app.js',
+  './interpretador.js', './dados.js', './calendario.js', './avisos.js', './tutorial.js', './atualizacao.js', './app.js',
   './manifest.webmanifest',
   './icones/icone-192.png', './icones/icone-512.png', './icones/icone-180.png'
 ];

@@ -847,6 +847,10 @@ function avisosAjustesHTML() {
     <button class="opcao" data-acao="testar-aviso"><span class="op-icone">🔔</span><div><div>Testar aviso</div>
       <div class="desc">Toca um aviso de teste daqui a 10 segundos.</div></div></button>
 
+    <h3>Versão do app</h3>
+    <button class="opcao" data-acao="procurar-atualizacao"><span class="op-icone">✨</span><div><div>Procurar atualização${Atualizacao.instalado ? ' · você tem a ' + Atualizacao.versaoInstalada() : ''}</div>
+      <div class="desc">O Prumo também confere sozinho ao abrir. Só pergunta o número da versão; seus dados não saem do celular.</div></div></button>
+
     <h3>Alarme</h3>
     <p>Diga "alarme", "alarma", "despertar" ou "me acorda" (ex.: <em>alarme 6h</em> ou <em>alarma daqui a 40 minutos</em>) e o Prumo toca como despertador: som do alarme do celular, vibração e a tela do alarme, com o celular bloqueado ou não, até você tocar em Parar ou Adiar. Também dá para ligar em qualquer compromisso, no Editar.</p>
     ${Avisos.telaCheia ? '' : `<div class="aviso">O Android não está deixando o alarme acender a tela. Ele ainda toca, mas só aparece na barra de cima.</div>
@@ -937,11 +941,14 @@ function importarBackup() {
 
 function render() {
   const conteudo = document.getElementById('conteudo');
-  if (App.busca !== null) conteudo.innerHTML = telaBusca();
-  else if (App.aba === 'hoje') conteudo.innerHTML = telaHoje();
-  else if (App.aba === 'dinheiro') conteudo.innerHTML = telaDinheiro();
-  else if (App.aba === 'agenda') conteudo.innerHTML = telaAgenda();
-  else conteudo.innerHTML = telaTarefas();
+  let tela;
+  if (App.busca !== null) tela = telaBusca();
+  else if (App.aba === 'hoje') tela = telaHoje();
+  else if (App.aba === 'dinheiro') tela = telaDinheiro();
+  else if (App.aba === 'agenda') tela = telaAgenda();
+  else tela = telaTarefas();
+  // Faixa "Versão nova do Prumo" (só no app Android), no alto de qualquer aba.
+  conteudo.innerHTML = (App.busca === null ? Atualizacao.bannerHTML() : '') + tela;
 
   document.querySelectorAll('.aba').forEach(b =>
     b.classList.toggle('ativa', App.busca === null && b.dataset.aba === App.aba));
@@ -961,6 +968,17 @@ document.addEventListener('click', evento => {
   if (acao === 'fechar-recado') { App.recado = null; App.recadoTexto = null; return render(); }
 
   if (acao === 'revisao') return abrirRevisao();
+  if (acao === 'atualizar-app') return Atualizacao.instalar();
+  if (acao === 'dispensar-atualizacao') { Atualizacao.dispensada = true; return render(); }
+  if (acao === 'procurar-atualizacao') {
+    alvo.disabled = true; alvo.querySelector('.desc').textContent = 'Procurando…';
+    return Atualizacao.conferir(true).then(n => {
+      Atualizacao.dispensada = false;
+      if (n) { fecharPainel(); App.busca = null; return render(); }
+      alvo.querySelector('.desc').textContent = 'Você já está com a versão mais nova' + (Atualizacao.instalado ? ' (' + Atualizacao.versaoInstalada() + ').' : '.');
+      alvo.disabled = false;
+    });
+  }
   if (acao === 'rev') return responderRevisao(alvo.dataset.o);
   if (acao === 'fechar-revisao') { App.revisao = null; fecharPainel(); return render(); }
   if (acao === 'revisao-semanal') {
@@ -1142,6 +1160,10 @@ function iniciar() {
 
   if (Avisos.nativo) {
     Avisos.preparar().then(() => renderConfirma());
+    // Versão nova liberada? Confere ao abrir e ao voltar para o app.
+    const conferirVersao = () => Atualizacao.conferir().then(n => { if (n) render(); });
+    conferirVersao();
+    if (window.Capacitor.Plugins.App) window.Capacitor.Plugins.App.addListener('resume', conferirVersao);
 
     // Botão 🎤: fala → texto → mesma confirmação de quando se digita.
     const btVoz = document.getElementById('btVoz');

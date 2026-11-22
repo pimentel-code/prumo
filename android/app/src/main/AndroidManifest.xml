@@ -77,6 +77,8 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- "Atualizar": instalar a versão nova do próprio Prumo, baixada do GitHub -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <!-- Prumo é app de agenda: alarme exato liberado direto no Android 13+, sem ir em Ajustes -->
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <!-- Alarme que toca em volta, acende a tela e vibra -->

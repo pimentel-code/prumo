@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# Publica uma versão nova do app Android no GitHub. O Obtainium, no celular,
-# percebe e atualiza sozinho.
+# Publica uma versão de TESTE do app Android no GitHub. Só chega a quem
+# acompanha os testes (o Obtainium do dono, com "pré-lançamentos" ligado).
+# Amigos e o site só recebem depois do ./aprovar-apk.sh.
 #
 #   ./publicar-apk.sh "o que mudou"      (ou: prumo atualizar "o que mudou")
 #
 # Faz, nesta ordem: provas rápidas → soma 1 na versão → monta o APK →
-# guarda tudo no git e envia → cria a "release" vX com o Prumo.apk anexado.
-# Enviar o código também atualiza o site (GitHub Pages).
+# guarda tudo no git e envia (ramo main) → cria a "pré-release" vX com o Prumo.apk.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -29,7 +29,8 @@ nota="${1:-Versão $versao do Prumo}"
 git add -A
 git commit -qm "Prumo $versao: $nota" || true
 git push -q
-gh release create "v$versao" Prumo.apk --title "Prumo $versao" --notes "$nota"
+gh release create "v$versao" Prumo.apk --prerelease --title "Prumo $versao (teste)" --notes "$nota"
 
 echo
-echo "Publicado: Prumo $versao. O Obtainium no celular vai avisar (ou atualizar sozinho)."
+echo "Publicado para TESTE: Prumo $versao. Só o seu Obtainium recebe."
+echo "Gostou? Libere para todos com:  prumo aprovar"
