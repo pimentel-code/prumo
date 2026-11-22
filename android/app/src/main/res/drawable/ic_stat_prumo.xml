@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ícone pequeno da barra de notificação: o fio de prumo, só a silhueta branca. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M5.5,2.5h13a1.25,1.25 0,0 1,0 2.5h-5.25v6.2h-2.5V5H5.5a1.25,1.25 0,0 1,0 -2.5z"/>
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M10.6,11.6h2.8l2.1,3v2.6L12,22.5L8.5,17.2v-2.6z"/>
+</vector>

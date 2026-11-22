@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Cores do widget e dos atalhos (tema claro). O escuro fica em values-night. -->
+<resources>
+    <color name="widget_fundo">#F5FFFFFF</color>
+    <color name="widget_texto">#14201D</color>
+    <color name="widget_suave">#63726C</color>
+    <color name="widget_acento">#0F766E</color>
+    <color name="widget_botao">#0F766E</color>
+    <color name="widget_botao_claro">#DCF2ED</color>
+</resources>

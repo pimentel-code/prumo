@@ -6,6 +6,7 @@ const VAZIO = {
   versao: 1,
   itens: [],
   aprendidas: {},      // palavra -> categoria, aprendido das suas correções
+  fixas: [],           // contas fixas: { id, tipo, titulo, valor, categoria, dia, desde: 'AAAA-MM' }
   ultimoBackup: null
 };
 
@@ -21,12 +22,14 @@ const Dados = {
       console.warn('Não consegui ler os dados guardados:', e);
       this.estado = Object.assign({}, VAZIO, { itens: [] });
     }
+    if (!Array.isArray(this.estado.fixas)) this.estado.fixas = [];
     return this.estado;
   },
 
   salvar() {
     try {
       localStorage.setItem(CHAVE, JSON.stringify(this.estado));
+      if (typeof Avisos !== 'undefined') Avisos.programar();   // app Android: refaz os avisos
       return true;
     } catch (e) {
       alert('Não consegui salvar. O armazenamento do celular pode estar cheio.\n\nFaça um backup em Ajustes antes de continuar.');
@@ -76,6 +79,34 @@ const Dados = {
     this.salvar();
   },
 
+  /* ---- contas fixas (aluguel, internet, salário…) ---- */
+
+  fixas() { return this.carregar().fixas; },
+
+  adicionarFixa(fixa) {
+    const completa = Object.assign({}, fixa, {
+      id: 'f' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+      criadoEm: new Date().toISOString()
+    });
+    this.carregar().fixas.push(completa);
+    this.salvar();
+    return completa;
+  },
+
+  atualizarFixa(id, mudancas) {
+    const f = this.fixas().find(x => x.id === id);
+    if (!f) return null;
+    Object.assign(f, mudancas);
+    this.salvar();
+    return f;
+  },
+
+  removerFixa(id) {
+    const e = this.carregar();
+    e.fixas = e.fixas.filter(f => f.id !== id);
+    this.salvar();
+  },
+
   /* ---- backup ---- */
 
   exportar() {
@@ -83,7 +114,7 @@ const Dados = {
     e.ultimoBackup = new Date().toISOString();
     this.salvar();
     return JSON.stringify({ app: 'Prumo', versao: 1, exportadoEm: e.ultimoBackup,
-                            itens: e.itens, aprendidas: e.aprendidas }, null, 1);
+                            itens: e.itens, aprendidas: e.aprendidas, fixas: e.fixas }, null, 1);
   },
 
   importar(texto, modo) {
@@ -96,11 +127,14 @@ const Dados = {
     if (modo === 'substituir') {
       e.itens = pacote.itens;
       e.aprendidas = pacote.aprendidas || {};
+      e.fixas = pacote.fixas || [];
     } else {
       const jaTem = new Set(e.itens.map(i => i.id));
       const novos = pacote.itens.filter(i => !jaTem.has(i.id));
       e.itens = novos.concat(e.itens);
       Object.assign(e.aprendidas, pacote.aprendidas || {});
+      const fixasJa = new Set(e.fixas.map(f => f.id));
+      e.fixas = e.fixas.concat((pacote.fixas || []).filter(f => !fixasJa.has(f.id)));
     }
     e.itens.sort((a, b) => (b.criadoEm || '').localeCompare(a.criadoEm || ''));
     this.salvar();
@@ -110,6 +144,7 @@ const Dados = {
   apagarTudo() {
     localStorage.removeItem(CHAVE);
     this.estado = null;
+    if (typeof Avisos !== 'undefined') Avisos.programar(0);
   },
 
   diasSemBackup() {

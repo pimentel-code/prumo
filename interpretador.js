@@ -122,6 +122,46 @@ class Frase {
   }
 }
 
+/* ---------- "daqui a 40 minutos" (hora contada a partir de agora) ---------- */
+
+const NUMEROS_FALADOS = {
+  um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7,
+  oito: 8, nove: 9, dez: 10, onze: 11, doze: 12, quinze: 15, vinte: 20,
+  'vinte e cinco': 25, trinta: 30, quarenta: 40, 'quarenta e cinco': 45, cinquenta: 50
+};
+
+/* "daqui a 40 minutos", "daqui 2 horas", "em meia hora", "dentro de 1h30",
+   "daqui a uma hora e meia", "daqui a 2 horas e 15", "daqui uns 20 min".
+   Devolve a data e a hora já somadas ao relógio de agora. */
+function acharDaqui(f, agora) {
+  const num = '(\\d{1,3}|' + Object.keys(NUMEROS_FALADOS).sort((a, b) => b.length - a.length).join('|') + ')';
+  const valorDe = t => /^\d/.test(t) ? +t : NUMEROS_FALADOS[t];
+  const inicio = '\\b(?:daqui\\s+(?:a\\s+|uns\\s+|umas\\s+)?|dentro\\s+de\\s+|em\\s+(?:uns\\s+|umas\\s+)?)';
+  const tentativas = [
+    // "1h30", "2h15min"
+    [new RegExp(inicio + '(\\d{1,2})\\s*h\\s*([0-5]?\\d)\\s*(?:min(?:utos?)?)?\\b'), m => +m[1] * 60 + +m[2]],
+    // "meia hora"
+    [new RegExp(inicio + 'meia\\s+hora\\b'), () => 30],
+    // "uma hora e meia", "2 horas e 15 (minutos)", "3 horas", "40 minutos", "20 min"
+    [new RegExp(inicio + num + '\\s*(horas?|hs?|minutos?|mins?)\\b(?:\\s+e\\s+(meia|' + num.slice(1, -1) + ')(?:\\s*(?:minutos?|mins?))?\\b)?'), m => {
+      const n = valorDe(m[1]);
+      if (/^m/.test(m[2])) return n;
+      const extra = m[3] ? (m[3] === 'meia' ? 30 : valorDe(m[3])) : 0;
+      return n * 60 + (extra || 0);
+    }]
+  ];
+  for (const [re, minutos] of tentativas) {
+    const m = f.achar(re);
+    if (!m) continue;
+    const total = minutos(m);
+    if (!total || total > 72 * 60) continue;
+    f.marcar(m.index, m.index + m[0].length);
+    const d = new Date(agora.getTime() + total * 60000);
+    return { data: paraISO(d), hora: comZero(d.getHours()) + ':' + comZero(d.getMinutes()) };
+  }
+  return null;
+}
+
 /* ---------- hora ---------- */
 
 function acharHora(f) {
@@ -265,6 +305,39 @@ function acharValor(f) {
   return null;
 }
 
+/* ---------- parcelas e contas fixas ---------- */
+
+const NUM = '(\\d[\\d.]*(?:,\\d{1,2})?)';
+
+/* "em 10x", "em 10 vezes", "parcelado em 12", "10x de 120", "em 3x sem juros".
+   Devolve { n, parcela } — parcela só quando a frase diz o valor de cada uma. */
+function acharParcelas(f) {
+  const tentativas = [
+    new RegExp('\\b(?:parcelad[oa]s?\\s+)?em\\s+(\\d{1,2})\\s*(?:x|vezes|parcelas?)(?:\\s+de\\s+(?:r\\$\\s*)?' + NUM + ')?(?:\\s+sem\\s+juros)?\\b'),
+    new RegExp('\\bparcelad[oa]s?\\s+em\\s+(\\d{1,2})()\\b'),
+    new RegExp('\\b(\\d{1,2})\\s*(?:x|vezes|parcelas)\\s+de\\s+(?:r\\$\\s*)?' + NUM + '(?:\\s+sem\\s+juros)?')
+  ];
+  for (const re of tentativas) {
+    const m = f.achar(re);
+    if (!m) continue;
+    const n = +m[1];
+    if (n < 2 || n > 72) continue;
+    f.marcar(m.index, m.index + m[0].length);
+    return { n, parcela: m[2] ? numeroBR(m[2]) : null };
+  }
+  return null;
+}
+
+/* "todo dia 5", "todo santo dia 10", "todo mês", "por mês", "mensal".
+   Devolve o dia do mês (ou 0 = "o mesmo dia de hoje"). */
+function acharRepeticao(f) {
+  let m = f.achar(/\btodo\s+(?:santo\s+)?dia\s+(\d{1,2})(?:\s+de\s+cada\s+mes|\s+de\s+todo\s+mes)?\b/);
+  if (m && +m[1] >= 1 && +m[1] <= 31) { f.marcar(m.index, m.index + m[0].length); return +m[1]; }
+  m = f.achar(/\b(?:todo\s+mes|todos\s+os\s+meses|por\s+mes|ao\s+mes|mensal(?:mente)?)\b/);
+  if (m) { f.marcar(m.index, m.index + m[0].length); return 0; }
+  return null;
+}
+
 /* ---------- intenção e categoria ---------- */
 
 function acharPalavra(f, lista) {
@@ -311,9 +384,15 @@ function interpretar(textoOriginal, opcoes = {}) {
   const aprendidas = opcoes.aprendidas || {};
   const f = new Frase(textoOriginal.trim());
 
-  const hora = acharHora(f);
-  const data = acharData(f, hoje);
-  const valor = acharValor(f);
+  // Antes de hora e data: senão o "dia 5" de "todo dia 5" vira data.
+  const repete = acharRepeticao(f);
+  const parcelas = acharParcelas(f);
+  // "daqui a 40 minutos" antes da hora: senão o "2 horas" de "daqui a 2 horas" vira 02:00.
+  const daqui = acharDaqui(f, opcoes.agora || new Date());
+  const hora = daqui ? daqui.hora : acharHora(f);
+  const data = daqui ? daqui.data : acharData(f, hoje);
+  let valor = acharValor(f);
+  if (parcelas && parcelas.parcela && valor === null) valor = Math.round(parcelas.parcela * parcelas.n * 100) / 100;
 
   const receita = acharPalavra(f, PALAVRAS.receita);
   const gasto = receita ? null : acharPalavra(f, PALAVRAS.gasto);
@@ -332,13 +411,21 @@ function interpretar(textoOriginal, opcoes = {}) {
   else if (data) tipo = 'tarefa';
   else tipo = 'nota';
 
+  // Dinheiro que repete ou parcelado é sempre dinheiro, mesmo com "pagar" na frase.
+  if ((repete !== null || parcelas) && valor !== null) {
+    tipo = receita && !parcelas ? 'receita' : 'gasto';
+    if (tarefaAcao && tarefaAcao.palavra === 'pagar') f.marcar(tarefaAcao.index, tarefaAcao.index + tarefaAcao.tamanho);
+  }
+
   // Tira do título só o verbo que revelou a intenção — o resto do texto fica.
   const marcaVerbo = (tipo === 'receita' && receita) || (tipo === 'gasto' && gasto) ||
                      (['tarefa', 'compromisso', 'nota'].includes(tipo) && tarefaMeta) || null;
   if (marcaVerbo) f.marcar(marcaVerbo.index, marcaVerbo.index + marcaVerbo.tamanho);
 
   const sobra = f.sobra();
-  const titulo = limparTitulo(sobra) || limparTitulo(textoOriginal) || 'Sem título';
+  // Se só sobrou o verbo (ex.: "salário 4200 todo dia 5"), o título é o próprio verbo/palavra.
+  const soVerbo = marcaVerbo ? limparTitulo(textoOriginal.substr(marcaVerbo.index, marcaVerbo.tamanho)) : '';
+  const titulo = limparTitulo(sobra) || ((repete !== null || parcelas) && soVerbo) || (daqui && 'Lembrete') || limparTitulo(textoOriginal) || 'Sem título';
 
   const item = {
     tipo,
@@ -350,9 +437,11 @@ function interpretar(textoOriginal, opcoes = {}) {
     hora,
     feito: false
   };
+  // Hora contada a partir de agora: o aviso toca NA hora, sem antecedência.
+  if (daqui) item.naHora = true;
 
   // "12/03" dito em setembro, para algo que ainda vai acontecer, é do ano que vem.
-  if (item.data && !f.anoExplicito && (tipo === 'compromisso' || tipo === 'tarefa')) {
+  if (item.data && !daqui && !f.anoExplicito && (tipo === 'compromisso' || tipo === 'tarefa')) {
     const hojeISO = paraISO(hoje);
     if (item.data < hojeISO) {
       const [a, me, di] = item.data.split('-').map(Number);
@@ -365,6 +454,10 @@ function interpretar(textoOriginal, opcoes = {}) {
 
   if (item.valor !== null) {
     item.categoria = acharCategoria(textoOriginal, aprendidas, tipo === 'receita') || 'Outros';
+  }
+  if (parcelas && tipo === 'gasto') item.parcelas = parcelas.n;
+  if (repete !== null && (tipo === 'gasto' || tipo === 'receita')) {
+    item.todoDia = repete || +(item.data || paraISO(hoje)).slice(8, 10);
   }
   return item;
 }

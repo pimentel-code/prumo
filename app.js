@@ -14,6 +14,51 @@ const TIPOS = {
   nota:        { nome: 'Anotação',    icone: '✎' }
 };
 
+/* Cada tipo tem cor (no CSS, por data-tipo) e um desenho próprio. */
+const SELO_TIPO = {
+  gasto:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M6 13l6 6 6-6"/></svg>',
+  receita:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M6 11l6-6 6 6"/></svg>',
+  compromisso: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2.5"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>',
+  tarefa:      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="17" rx="3"/><path d="M8 12.5l2.8 2.8L16.5 9.6"/></svg>',
+  nota:        '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>'
+};
+
+const EMOJI_CATEGORIA = {
+  'Alimentação': '🍽️', 'Mercado': '🛒', 'Transporte': '🚗', 'Casa': '🏠', 'Saúde': '💊',
+  'Educação': '📚', 'Lazer': '🎉', 'Assinaturas': '📺', 'Vestuário': '👕', 'Trabalho': '💼',
+  'Família': '👨‍👩‍👧', 'Salário': '💰', 'Honorários': '🧾', 'Vendas': '🏷️',
+  'Rendimentos': '📈', 'Reembolso': '↩️'
+};
+
+/* O quadradinho colorido à esquerda do item. Compromisso mostra a hora. */
+function seloHTML(item) {
+  if (item.tipo === 'compromisso' && item.hora) {
+    return `<div class="selo selo-hora">${esc(item.hora)}<small>${item.alarme ? 'alarme' : 'hora'}</small></div>`;
+  }
+  if ((item.tipo === 'gasto' || item.tipo === 'receita') && EMOJI_CATEGORIA[item.categoria]) {
+    return `<div class="selo">${EMOJI_CATEGORIA[item.categoria]}</div>`;
+  }
+  return `<div class="selo">${SELO_TIPO[item.tipo] || SELO_TIPO.nota}</div>`;
+}
+
+/* Frases de exemplo: aparecem ao tocar na caixa vazia e um toque preenche. */
+function exemplos() {
+  const base = [
+    ['💸', 'paguei 45 no almoço'],
+    ['📅', 'dentista quinta 15h'],
+    ['✅', 'lembrar de pagar a luz amanhã'],
+    ['💰', 'recebi 300 de serviço'],
+    ['📝', 'anotar: senha do wi-fi é prumo123']
+  ];
+  if (Avisos.nativo) base.splice(3, 0, ['⏰', 'me acorda às 6h']);
+  return base;
+}
+
+function sugestoesHTML() {
+  return '<div class="sugestoes">' + exemplos().map(([e, f]) =>
+    `<button type="button" class="sugestao" data-acao="sugestao" data-frase="${esc(f)}">${e} ${esc(f)}</button>`).join('') + '</div>';
+}
+
 /* ---------- ajudantes ---------- */
 
 function esc(s) {
@@ -73,12 +118,87 @@ function ordemAgenda(a, b) {
   return (a.data || '').localeCompare(b.data || '') || (a.hora || '99:99').localeCompare(b.hora || '99:99');
 }
 
+/* ---------- meses, parcelas e contas fixas ---------- */
+
+function chaveMes(ano, mes) { return ano + '-' + String(mes + 1).padStart(2, '0'); }
+
+/* Mesmo dia, n meses depois. Dia 31 em mês curto vira o último dia do mês. */
+function somarMeses(iso, n) {
+  const [a, m, d] = iso.split('-').map(Number);
+  const alvo = new Date(a, m - 1 + n, 1);
+  const ultimo = new Date(alvo.getFullYear(), alvo.getMonth() + 1, 0).getDate();
+  alvo.setDate(Math.min(d, ultimo));
+  return paraISO(alvo);
+}
+
+function mesCurtoAno(iso) {
+  const [a, m] = iso.split('-').map(Number);
+  return MES_CURTO[m - 1] + '/' + a;
+}
+
+function vencimentoFixa(fixa, ano, mes) {
+  const ultimo = new Date(ano, mes + 1, 0).getDate();
+  return paraISO(new Date(ano, mes, Math.min(fixa.dia, ultimo)));
+}
+
+/* Situação de cada conta fixa num mês: quando vence e se já foi paga. */
+function fixasDoMes(ano, mes) {
+  const ym = chaveMes(ano, mes);
+  return Dados.fixas().filter(f => (f.desde || '') <= ym).map(f => ({
+    fixa: f, ym, venc: vencimentoFixa(f, ano, mes),
+    pago: Dados.itens().find(i => i.fixaId === f.id && i.data && i.data.startsWith(ym)) || null
+  })).sort((a, b) => a.venc.localeCompare(b.venc));
+}
+
+/* "Paguei": vira um lançamento normal, ligado à conta fixa. */
+function pagarFixa(fixaId, ym) {
+  const f = Dados.fixas().find(x => x.id === fixaId);
+  if (!f) return null;
+  const h = hojeISO();
+  const [a, m] = ym.split('-').map(Number);
+  const data = h.startsWith(ym) ? h : vencimentoFixa(f, a, m - 1);
+  return Dados.adicionar({ tipo: f.tipo, titulo: f.titulo, texto: f.titulo, valor: f.valor,
+    categoria: f.categoria, data, hora: null, feito: false, fixaId: f.id });
+}
+
+/* "TV 1.200 em 10x": dez lançamentos, um por mês, ligados pelo mesmo grupo.
+   Centavos que sobram da divisão vão para a última parcela. */
+function criarParcelas(item) {
+  const n = item.parcelas, total = item.valor;
+  const base = Math.floor(total / n * 100) / 100;
+  const grupo = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+  const inicio = item.data || hojeISO();
+  const criados = [];
+  for (let k = 0; k < n; k++) {
+    const valor = k === n - 1 ? Math.round((total - base * (n - 1)) * 100) / 100 : base;
+    const p = Object.assign({}, item, { valor, data: somarMeses(inicio, k), grupo, parcela: (k + 1) + '/' + n });
+    delete p.parcelas; delete p.todoDia;
+    criados.push(Dados.adicionar(p));
+  }
+  return criados;
+}
+
+/* A linha de explicação embaixo dos campos, na confirmação. */
+function dicaDinheiro(item) {
+  if (item.todoDia) {
+    return '🔁 Conta fixa: aparece todo mês em Dinheiro' + (Avisos.nativo ? ', com aviso' : ' e em Hoje') + ' no dia ' + item.todoDia + '.';
+  }
+  if (item.parcelas >= 2 && item.valor) {
+    const inicio = item.data || hojeISO();
+    return '➗ ' + item.parcelas + ' × ' + fmtMoeda(item.valor / item.parcelas) + ', de ' +
+           mesCurtoAno(inicio) + ' a ' + mesCurtoAno(somarMeses(inicio, item.parcelas - 1)) + '.';
+  }
+  return '';
+}
+
 /* ---------- estado da interface ---------- */
 
 const App = {
   aba: 'hoje',
   rascunho: null,
   recado: null,
+  recadoTexto: null,
+  revisao: null,
   busca: null,
   mostrarPassados: false,
   mesRef: { ano: new Date().getFullYear(), mes: new Date().getMonth() }
@@ -106,7 +226,7 @@ function aoEnviar(evento) {
   const texto = campo.value.trim();
   if (!texto) return;
   App.recado = null;
-  App.rascunho = interpretar(texto, { aprendidas: Dados.carregar().aprendidas });
+  App.rascunho = Avisos.ajustarAlarme(interpretar(texto, { aprendidas: Dados.carregar().aprendidas }));
   App.rascunho.categoriaOriginal = App.rascunho.categoria;
   renderConfirma();
   campo.blur();
@@ -125,20 +245,40 @@ function camposHTML(item, p) {
   h += `<div class="campo"><label for="${p}titulo">O quê</label>
         <input id="${p}titulo" type="text" value="${esc(item.titulo)}"></div>`;
   if (temValor) {
-    h += `<div class="campo"><label for="${p}valor">Valor</label>
+    h += `<div class="campo"><label for="${p}valor">${item.parcelas ? 'Total' : 'Valor'}</label>
           <input id="${p}valor" type="text" inputmode="decimal" value="${item.valor == null ? '' : String(item.valor).replace('.', ',')}"></div>`;
     const cats = categoriasDe(item.tipo);
     h += `<div class="campo"><label for="${p}categoria">Categoria</label><select id="${p}categoria">` +
          cats.map(c => `<option value="${esc(c)}"${c === item.categoria ? ' selected' : ''}>${esc(c)}</option>`).join('') +
          '</select></div>';
+    if (p === 'c_') {
+      if (item.parcelas != null && item.tipo === 'gasto') {
+        h += `<div class="campo"><label for="c_parcelas">Parcelas</label>
+              <input id="c_parcelas" type="number" inputmode="numeric" min="2" max="72" value="${item.parcelas || ''}"></div>`;
+      }
+      if (item.todoDia != null) {
+        h += `<div class="campo"><label for="c_todoDia">Todo dia</label>
+              <input id="c_todoDia" type="number" inputmode="numeric" min="1" max="31" value="${item.todoDia || ''}"></div>`;
+      }
+      const dica = dicaDinheiro(item);
+      h += `<div class="dica" id="c_dica"${dica ? '' : ' hidden'}>${esc(dica)}</div>`;
+      if (item.parcelas == null && item.todoDia == null) {
+        h += `<div class="extras">${item.tipo === 'gasto' ? '<button type="button" class="mini" data-acao="add-parcelas">➗ Parcelar</button>' : ''}
+              <button type="button" class="mini" data-acao="add-fixa">🔁 Repete todo mês</button></div>`;
+      }
+    }
   }
-  if (temData) {
+  if (temData && !(temValor && item.todoDia != null && p === 'c_')) {
     h += `<div class="campo"><label for="${p}data">Quando</label>
           <input id="${p}data" type="date" value="${item.data || ''}"></div>`;
   }
   if (temHora) {
     h += `<div class="campo"><label for="${p}hora">Hora</label>
           <input id="${p}hora" type="time" value="${item.hora || ''}"></div>`;
+    if (Avisos.nativo) {
+      h += `<label class="campo-alarme"><input id="${p}alarme" type="checkbox"${item.alarme ? ' checked' : ''}>
+            <span>⏰ Tocar como <strong>alarme</strong> (som até você parar)</span></label>`;
+    }
   }
   return h + '</div>';
 }
@@ -154,17 +294,32 @@ function lerCampos(item, p) {
   novo.categoria = pega('categoria') ? pega('categoria').value : null;
   novo.data = pega('data') ? (pega('data').value || null) : null;
   novo.hora = pega('hora') ? (pega('hora').value || null) : null;
+  if (pega('parcelas')) { const n = parseInt(pega('parcelas').value, 10); novo.parcelas = n >= 2 ? Math.min(n, 72) : 0; }
+  if (pega('todoDia')) { const d = parseInt(pega('todoDia').value, 10); novo.todoDia = d >= 1 && d <= 31 ? d : 0; }
+  if (pega('todoDia') && item.data) novo.data = item.data;   // conta fixa esconde a data, mas não a perde
+  if (pega('alarme')) novo.alarme = !!pega('alarme').checked;
+  else if (novo.tipo !== 'compromisso') delete novo.alarme;
   return novo;
 }
 
 function renderConfirma() {
   const alvo = document.getElementById('confirma');
-  if (!App.rascunho) { alvo.innerHTML = App.recado ? recadoHTML() : ''; return; }
+  // Com a confirmação aberta o topo deixa de ser fixo: em celular pequeno ela
+  // é mais alta que a tela, e o "Guardar" ficava preso atrás das abas.
+  if (document.body && document.body.classList) document.body.classList.toggle('confirmando', !!App.rascunho);
+  if (!App.rascunho) {
+    alvo.innerHTML = App.recado ? recadoHTML()
+      : App.recadoTexto ? `<div class="recado"><div class="recado-texto">${esc(App.recadoTexto)}</div>
+          <button class="icone-botao" data-acao="fechar-recado" aria-label="Dispensar">✕</button></div>` : '';
+    return;
+  }
   const r = App.rascunho;
   const chips = Object.keys(TIPOS).map(t =>
     `<button type="button" class="chip${t === r.tipo ? ' ativo' : ''}" data-acao="tipo" data-tipo="${t}">${TIPOS[t].nome}</button>`
   ).join('');
   alvo.innerHTML = `<div class="confirma">
+      <div class="confirma-cabeca">${seloHTML(r).replace('class="selo', 'data-tipo="' + r.tipo + '" class="selo')}
+        <div><strong>Entendi assim</strong><br><span>Confira, mude o tipo se precisar, e guarde.</span></div></div>
       <div class="confirma-tipos">${chips}</div>
       ${camposHTML(r, 'c_')}
       <div class="acoes">
@@ -177,6 +332,23 @@ function renderConfirma() {
 /* O Prumo não toca alarme sozinho — quem avisa é o calendário do celular.
    Por isso, ao guardar algo com data, o caminho para o aviso aparece na hora. */
 function recadoHTML() {
+  if (Avisos.nativo) {
+    // App Android: o próprio Prumo avisa. Só conta quando vai tocar.
+    const item = Dados.itens().find(i => i.id === App.recado);
+    const quando = item && Avisos.quando(item);
+    const texto = !quando ? 'Guardado. A hora do aviso já passou.'
+      : (Avisos.permitido === false && !item.alarme) ? 'Guardado, mas os avisos estão bloqueados no Android.'
+      : (item.alarme ? 'Guardado. Alarme ' : 'Guardado. Aviso ') + fmtQuandoAviso(quando) + '.';
+    const botao = (Avisos.permitido === false && !(item && item.alarme))
+      ? `<button class="mini" data-acao="permitir-avisos">Liberar avisos</button>`
+      : (item && item.alarme && quando && !Avisos.sobrepor)
+      ? `<button class="mini" data-acao="sobrepor">Liberar tela do alarme</button>` : '';
+    return `<div class="recado">
+      <div class="recado-texto">${esc(texto)}</div>
+      ${botao}
+      <button class="icone-botao" data-acao="fechar-recado" aria-label="Dispensar">✕</button>
+    </div>`;
+  }
   return `<div class="recado">
       <div class="recado-texto">Guardado. Quer ser avisado na hora?</div>
       <button class="mini" data-acao="calendario" data-id="${App.recado}">Pôr no calendário</button>
@@ -205,14 +377,38 @@ function salvarRascunho() {
     Dados.aprender(item.texto, item.categoria);
   }
   delete item.categoriaOriginal;
+  const dinheiro = item.tipo === 'gasto' || item.tipo === 'receita';
+
+  // Conta fixa: não vira lançamento agora — vira uma conta que volta todo mês.
+  if (dinheiro && item.todoDia) {
+    const h = hojeISO();
+    // O dia deste mês já passou? Começa a contar no mês que vem.
+    const desde = +h.slice(8, 10) > item.todoDia ? somarMeses(h.slice(0, 8) + '01', 1).slice(0, 7) : h.slice(0, 7);
+    Dados.adicionarFixa({ tipo: item.tipo, titulo: item.titulo, valor: item.valor,
+      categoria: item.categoria, dia: item.todoDia, desde });
+    App.recadoTexto = 'Conta fixa criada: todo dia ' + item.todoDia +
+      (desde !== h.slice(0, 7) ? ', a partir de ' + NOMES_MES[+desde.slice(5, 7) - 1] : '') + '.';
+    return depoisDeGuardar('dinheiro');
+  }
+  if (item.tipo === 'gasto' && item.parcelas >= 2) {
+    const criados = criarParcelas(item);
+    App.recadoTexto = criados.length + ' parcelas de ' + fmtMoeda(criados[0].valor) + ' lançadas, até ' +
+      mesCurtoAno(criados[criados.length - 1].data) + '.';
+    return depoisDeGuardar('dinheiro');
+  }
+  delete item.parcelas; delete item.todoDia;
   const salvo = Dados.adicionar(item);
   App.recado = (salvo.data && (salvo.tipo === 'tarefa' || salvo.tipo === 'compromisso'))
     ? salvo.id : null;
+  App.recadoTexto = null;
+  depoisDeGuardar(dinheiro ? 'dinheiro' : item.tipo === 'compromisso' ? 'agenda' : item.tipo === 'tarefa' ? 'tarefas' : App.aba);
+}
+
+function depoisDeGuardar(aba) {
   App.rascunho = null;
   document.getElementById('campoEntrada').value = '';
-  if (item.tipo === 'gasto' || item.tipo === 'receita') App.aba = 'dinheiro';
-  else if (item.tipo === 'compromisso') App.aba = 'agenda';
-  else if (item.tipo === 'tarefa') App.aba = 'tarefas';
+  App.aba = aba;
+  App.mesRef = { ano: new Date().getFullYear(), mes: new Date().getMonth() };
   render();
 }
 
@@ -236,6 +432,8 @@ function itemHTML(item, op) {
   if (op.mostrarData && item.data) info.push(esc(fmtDataCurta(item.data)));
   if (item.hora) info.push(esc(item.hora));
   if (item.categoria && op.mostrarCategoria !== false) info.push(esc(item.categoria));
+  if (item.parcela) info.push('parcela ' + esc(item.parcela));
+  if (item.fixaId) info.push('🔁 conta fixa');
   if (atrasado) info.push('<span class="destaque">atrasado</span>');
 
   let valor = '';
@@ -244,11 +442,17 @@ function itemHTML(item, op) {
     valor = `<div class="valor ${entrada ? 'entrou' : 'saiu'}">${entrada ? '+' : '−'} ${esc(fmtMoeda(item.valor).replace('R$ ', ''))}</div>`;
   }
 
-  const calendario = (op.calendario && item.data && !item.feito && item.id !== App.recado)
+  if (Avisos.nativo && op.calendario && Avisos.quando(item)) info.push((item.alarme ? '⏰ ' : '🔔 ') + esc(fmtQuandoAviso(Avisos.quando(item))));
+  const calendario = (!Avisos.nativo && op.calendario && item.data && !item.feito && item.id !== App.recado)
     ? `<button class="mini" data-acao="calendario" data-id="${item.id}">Pôr no calendário</button>` : '';
 
-  return `<div class="${classes.join(' ')}">
-    ${marcador}
+  // Com marcador (tarefas, lista de hoje) a bolinha de "feito" faz o papel do selo.
+  const selo = marcador ? '' : seloHTML(item);
+  // A hora já está dentro do selo do compromisso: não repete embaixo do título.
+  if (item.hora && !marcador && item.tipo === 'compromisso' && info.indexOf(esc(item.hora)) >= 0) info.splice(info.indexOf(esc(item.hora)), 1);
+
+  return `<div class="${classes.join(' ')}" data-tipo="${esc(item.tipo)}">
+    ${marcador}${selo}
     <div class="item-corpo" data-acao="abrir" data-id="${item.id}">
       <div class="item-titulo">${esc(item.titulo)}</div>
       ${info.length ? `<div class="item-info">${info.join('<span>·</span>')}</div>` : ''}
@@ -258,17 +462,41 @@ function itemHTML(item, op) {
   </div>`;
 }
 
+function fixaHTML(x) {
+  const f = x.fixa, h = hojeISO();
+  const entrada = f.tipo === 'receita';
+  const dia = +x.venc.slice(8, 10);
+  let info;
+  if (x.pago) info = '✓ ' + (entrada ? 'recebido' : 'pago') + ' dia ' + (+x.pago.data.slice(8, 10));
+  else if (x.venc < h) info = '<span class="destaque">venceu dia ' + dia + '</span>';
+  else if (x.venc === h) info = '<span class="destaque">vence hoje</span>';
+  else info = 'vence dia ' + dia;
+  return `<div class="item fixa${x.pago ? ' feito-fixa' : ''}" data-tipo="${f.tipo}">
+    ${seloHTML({ tipo: f.tipo, categoria: f.categoria })}
+    <div class="item-corpo" data-acao="editar-fixa" data-id="${f.id}">
+      <div class="item-titulo">${esc(f.titulo)}</div>
+      <div class="item-info">🔁 ${info}</div>
+    </div>
+    <div class="fixa-lado">
+      <div class="valor ${entrada ? 'entrou' : 'saiu'}">${entrada ? '+' : '−'} ${esc(fmtMoedaNua(f.valor))}</div>
+      ${x.pago ? '' : `<button class="mini" data-acao="pagar-fixa" data-id="${f.id}" data-ym="${x.ym}">${entrada ? 'Recebi' : 'Paguei'}</button>`}
+    </div>
+  </div>`;
+}
+
 function listaHTML(itens, op) {
   return '<div class="lista">' + itens.map(i => itemHTML(i, op)).join('') + '</div>';
 }
 
 function secao(titulo, itens, op) {
   if (!itens.length) return '';
-  return `<div class="secao-titulo">${esc(titulo)}</div>` + listaHTML(itens, op);
+  const alerta = titulo === 'Atrasado' ? ' alerta' : '';
+  return `<div class="secao-titulo${alerta}">${esc(titulo)} <span class="conta">${itens.length}</span></div>` + listaHTML(itens, op);
 }
 
-function vazio(titulo, texto) {
-  return `<div class="vazio"><strong>${esc(titulo)}</strong>${esc(texto)}</div>`;
+function vazio(titulo, texto, arte, comExemplos) {
+  return `<div class="vazio"><div class="vazio-arte">${arte || '🌿'}</div>
+    <strong>${esc(titulo)}</strong><p>${esc(texto)}</p>${comExemplos ? sugestoesHTML() : ''}</div>`;
 }
 
 /* ---------- telas ---------- */
@@ -281,19 +509,40 @@ function telaHoje() {
   const semPrazo = itens.filter(i => i.tipo === 'tarefa' && !i.data && !i.feito).slice(0, 6);
   const gastosHoje = itens.filter(i => i.tipo === 'gasto' && i.data === h);
   const somaHoje = gastosHoje.reduce((s, i) => s + (i.valor || 0), 0);
+  const agora = new Date();
+  const contas = fixasDoMes(agora.getFullYear(), agora.getMonth()).filter(x => !x.pago && x.venc <= h);
 
-  if (!atrasados.length && !deHoje.length && !semPrazo.length && !gastosHoje.length) {
+  if (!atrasados.length && !deHoje.length && !semPrazo.length && !gastosHoje.length && !contas.length) {
     if (!itens.length) {
-      return vazio('Tudo no prumo', 'Escreva ou dite na caixa lá em cima. Por exemplo: "paguei 180 de conta de luz", "dentista quinta 15h", "lembrar de levar o carro na revisão".');
+      return vazio('Tudo no prumo', 'Escreva ou fale na caixa lá em cima, do jeito que você falaria com alguém. Toque num exemplo para experimentar:', '🧭', true);
     }
-    return vazio('Nada para hoje', 'Sem compromisso, sem atraso e sem gasto lançado hoje.');
+    return vazio('Nada para hoje', 'Sem compromisso, sem atraso e sem gasto lançado hoje.', '☀️');
   }
 
-  let h2 = '';
+  // Resumo do dia: três números grandes que levam para a aba certa.
+  const compHoje = deHoje.filter(i => i.tipo === 'compromisso').length;
+  const pendentes = itens.filter(i => i.tipo === 'tarefa' && !i.feito).length;
+  let h2 = `<div class="dia">
+      <button class="dia-caixa" data-tipo="compromisso" data-acao="ir-aba" data-aba="agenda"><span class="n">${compHoje}</span><span class="r">compromisso${compHoje === 1 ? '' : 's'} hoje</span></button>
+      <button class="dia-caixa" data-tipo="tarefa" data-acao="ir-aba" data-aba="tarefas"><span class="n">${pendentes}</span><span class="r">tarefa${pendentes === 1 ? '' : 's'} a fazer</span></button>
+      <button class="dia-caixa" data-tipo="gasto" data-acao="ir-aba" data-aba="dinheiro"><span class="n">${esc(fmtMoedaNua(somaHoje).replace(/,00$/, ''))}</span><span class="r">gasto hoje</span></button>
+    </div>`;
+  if (atrasados.length) {
+    const n = atrasados.length;
+    h2 += `<button class="revisao-banner" data-acao="revisao">
+        <span class="revisao-banner-icone">🧹</span>
+        <span class="revisao-banner-texto"><strong>${n} ${n === 1 ? 'coisa ficou' : 'coisas ficaram'} para trás</strong>
+        <span>Arrume em 20 segundos: feito, adiar ou apagar</span></span>
+        <span class="revisao-banner-seta">›</span></button>`;
+  }
+  if (contas.length) {
+    h2 += `<div class="secao-titulo alerta">Contas para pagar <span class="conta">${contas.length}</span></div>` +
+          '<div class="lista">' + contas.map(fixaHTML).join('') + '</div>';
+  }
   h2 += secao('Atrasado', atrasados, { marcador: true, mostrarData: true, calendario: false });
   h2 += secao('Hoje', deHoje, { marcador: true, calendario: true });
   if (somaHoje > 0) {
-    h2 += `<div class="secao-titulo">Gasto de hoje · ${esc(fmtMoeda(somaHoje))}</div>` +
+    h2 += `<div class="secao-titulo">Gasto de hoje <span class="conta">${esc(fmtMoeda(somaHoje))}</span></div>` +
           listaHTML(gastosHoje, {});
   }
   h2 += secao('Sem prazo', semPrazo, { marcador: true });
@@ -302,53 +551,84 @@ function telaHoje() {
 
 function telaDinheiro() {
   const { ano, mes } = App.mesRef;
-  const prefixo = ano + '-' + String(mes + 1).padStart(2, '0');
+  const prefixo = chaveMes(ano, mes);
+  const h = hojeISO();
   const doMes = Dados.itens()
     .filter(i => (i.tipo === 'gasto' || i.tipo === 'receita') && i.data && i.data.startsWith(prefixo))
     .sort((a, b) => b.data.localeCompare(a.data));
+  // Lançado com data futura (parcelas que ainda vêm) não "saiu" ainda: vai sair.
+  const feitos = doMes.filter(i => i.data <= h);
+  const previstos = doMes.filter(i => i.data > h).sort((a, b) => a.data.localeCompare(b.data));
+  const fixas = prefixo >= h.slice(0, 7) ? fixasDoMes(ano, mes) : [];
+  const abertas = fixas.filter(x => !x.pago);
 
-  const saiu = doMes.filter(i => i.tipo === 'gasto').reduce((s, i) => s + (i.valor || 0), 0);
-  const entrou = doMes.filter(i => i.tipo === 'receita').reduce((s, i) => s + (i.valor || 0), 0);
+  const soma = (lista, tipo) => lista.filter(i => i.tipo === tipo).reduce((t, i) => t + (i.valor || 0), 0);
+  const somaFixas = tipo => abertas.filter(x => x.fixa.tipo === tipo).reduce((t, x) => t + (x.fixa.valor || 0), 0);
+  const saiu = soma(feitos, 'gasto'), entrou = soma(feitos, 'receita');
+  const vaiSair = soma(previstos, 'gasto') + somaFixas('gasto');
+  const vaiEntrar = soma(previstos, 'receita') + somaFixas('receita');
+  const saldo = entrou - saiu, fimDoMes = saldo + vaiEntrar - vaiSair;
 
-  let h = `<div class="mes">
+  const previsao = (vaiSair || vaiEntrar) ? `<div class="previsao">
+      ${vaiSair ? `<span>Ainda vai sair <b>${esc(fmtMoeda(vaiSair))}</b></span>` : ''}
+      ${vaiEntrar ? `<span>Ainda vai entrar <b>${esc(fmtMoeda(vaiEntrar))}</b></span>` : ''}
+      <span>No fim do mês <b>${fimDoMes < 0 ? '−' : ''}${esc(fmtMoeda(Math.abs(fimDoMes)))}</b></span>
+    </div>` : '';
+
+  let html = `<div class="mes">
       <button class="icone-botao" data-acao="mes" data-passo="-1" aria-label="Mês anterior">‹</button>
       <div class="mes-nome">${NOMES_MES[mes]} ${ano}</div>
       <button class="icone-botao" data-acao="mes" data-passo="1" aria-label="Próximo mês">›</button>
     </div>
     <div class="resumo">
-      <div class="caixa"><div class="rotulo">Entrou</div><div class="numero entrou">${esc(fmtMoedaNua(entrou))}</div></div>
-      <div class="caixa"><div class="rotulo">Saiu</div><div class="numero saiu">${esc(fmtMoedaNua(saiu))}</div></div>
-      <div class="caixa"><div class="rotulo">Sobrou</div><div class="numero ${entrou - saiu < 0 ? 'saiu' : ''}">${esc(fmtMoedaNua(entrou - saiu))}</div></div>
+      <div class="caixa caixa-saldo${saldo < 0 ? ' negativo' : ''}"><div class="rotulo">${saldo < 0 ? 'Faltou no mês' : 'Sobrou no mês'}</div><div class="numero"><small>R$</small>${esc(fmtMoedaNua(Math.abs(saldo)))}</div>${previsao}</div>
+      <div class="caixa"><div class="rotulo"><span class="seta entrou">↑</span>Entrou</div><div class="numero entrou">${esc(fmtMoedaNua(entrou))}</div></div>
+      <div class="caixa"><div class="rotulo"><span class="seta saiu">↓</span>Saiu</div><div class="numero saiu">${esc(fmtMoedaNua(saiu))}</div></div>
     </div>`;
 
-  if (!doMes.length) return h + vazio('Mês em branco', 'Nada lançado neste mês.');
+  if (!doMes.length && !fixas.length) {
+    return html + vazio('Mês em branco', 'Nada lançado neste mês. Experimente escrever "paguei 30 de gasolina" ou "aluguel 900 todo dia 5".', '🪙');
+  }
+
+  if (fixas.length) {
+    html += `<div class="secao-titulo">Contas fixas <span class="conta">${abertas.length ? abertas.length + ' a pagar' : 'tudo pago'}</span></div>` +
+            '<div class="lista">' + fixas.map(fixaHTML).join('') + '</div>';
+  }
+  if (previstos.length) {
+    html += `<div class="secao-titulo">Ainda vai ${previstos.every(i => i.tipo === 'receita') ? 'entrar' : 'sair'} <span class="conta">${previstos.length}</span></div>` +
+            listaHTML(previstos, { mostrarData: true });
+  }
 
   const porCategoria = {};
-  doMes.filter(i => i.tipo === 'gasto').forEach(i => {
+  feitos.filter(i => i.tipo === 'gasto').forEach(i => {
     const c = i.categoria || 'Outros';
     porCategoria[c] = (porCategoria[c] || 0) + (i.valor || 0);
   });
   const ordenadas = Object.entries(porCategoria).sort((a, b) => b[1] - a[1]);
   if (ordenadas.length) {
     const maior = ordenadas[0][1];
-    h += '<div class="secao-titulo">Onde foi o dinheiro</div>';
-    h += ordenadas.map(([c, v]) => `<div class="barra-linha">
-        <div class="barra-topo"><span>${esc(c)}</span><span>${esc(fmtMoeda(v))}</span></div>
-        <div class="barra-trilho"><div class="barra-cheia" style="width:${Math.max(3, Math.round(v / maior * 100))}%"></div></div>
+    const cores = ['#e0565b', '#e8893a', '#d9b026', '#4fae6a', '#2f9e9a', '#3f7fd9', '#7a5cd6', '#c4569b'];
+    html += '<div class="secao-titulo">Onde foi o dinheiro</div>';
+    html += ordenadas.map(([c, v], n) => `<div class="barra-linha" style="--cor:${cores[n % cores.length]}">
+        <div class="selo" style="background:color-mix(in srgb, ${cores[n % cores.length]} 15%, transparent)">${EMOJI_CATEGORIA[c] || '💸'}</div>
+        <div class="barra-conteudo">
+          <div class="barra-topo"><span>${esc(c)}</span><span>${esc(fmtMoeda(v))} · ${Math.round(v / saiu * 100)}%</span></div>
+          <div class="barra-trilho"><div class="barra-cheia" style="width:${Math.max(3, Math.round(v / maior * 100))}%"></div></div>
+        </div>
       </div>`).join('');
   }
 
   let diaAtual = null;
-  doMes.forEach(i => {
+  feitos.forEach(i => {
     if (i.data !== diaAtual) {
-      if (diaAtual !== null) h += '</div>';
+      if (diaAtual !== null) html += '</div>';
       diaAtual = i.data;
-      h += `<div class="secao-titulo">${esc(fmtDataLonga(i.data))}</div><div class="lista">`;
+      html += `<div class="secao-titulo">${esc(fmtDataLonga(i.data))}</div><div class="lista">`;
     }
-    h += itemHTML(i, {});
+    html += itemHTML(i, {});
   });
-  if (diaAtual !== null) h += '</div>';
-  return h;
+  if (diaAtual !== null) html += '</div>';
+  return html;
 }
 
 function telaAgenda() {
@@ -358,7 +638,7 @@ function telaAgenda() {
   const passados = todos.filter(i => i.data < h).sort((a, b) => ordemAgenda(b, a));
 
   let saida = '';
-  if (!futuros.length) saida += vazio('Agenda livre', 'Nenhum compromisso marcado daqui pra frente.');
+  if (!futuros.length) saida += vazio('Agenda livre', 'Nenhum compromisso marcado daqui pra frente. Escreva, por exemplo, "reunião segunda 9h".', '📅');
 
   let diaAtual = null;
   futuros.forEach(i => {
@@ -387,7 +667,7 @@ function telaTarefas() {
   const notas = itens.filter(i => i.tipo === 'nota' && !i.feito);
   const feitas = itens.filter(i => i.feito).slice(0, 30);
 
-  if (!itens.length) return vazio('Nada pendente', 'Dite "lembrar de..." ou "preciso..." que aparece aqui.');
+  if (!itens.length) return vazio('Nada pendente', 'Escreva "lembrar de…" ou "preciso…" e a tarefa aparece aqui.', '✅');
 
   let h = '';
   h += secao('Atrasado', atrasadas, { marcador: true, mostrarData: true });
@@ -400,10 +680,10 @@ function telaTarefas() {
 
 function telaBusca() {
   const termo = semAcento(App.busca.trim());
-  if (!termo) return vazio('Buscar', 'Digite algo para procurar em tudo que você já anotou.');
+  if (!termo) return vazio('Buscar', 'Digite algo para procurar em tudo que você já anotou.', '🔎');
   const achados = Dados.itens().filter(i =>
     semAcento(i.titulo + ' ' + (i.texto || '') + ' ' + (i.categoria || '')).includes(termo));
-  if (!achados.length) return vazio('Nada encontrado', 'Nenhum registro com "' + App.busca.trim() + '".');
+  if (!achados.length) return vazio('Nada encontrado', 'Nenhum registro com "' + App.busca.trim() + '".', '🤷');
   return `<div class="secao-titulo">${achados.length} resultado${achados.length > 1 ? 's' : ''}</div>` +
          listaHTML(achados.slice(0, 100), { mostrarData: true, marcador: false });
 }
@@ -427,10 +707,78 @@ function painelEditar(id) {
   abrirPainel(`<h2>Editar</h2>
     <div class="confirma-tipos">${chips}</div>
     ${camposHTML(item, 'e_')}
+    ${item.parcela ? `<p>Parcela ${esc(item.parcela)}. Mudar aqui muda só esta parcela.</p>` : ''}
+    ${item.grupo ? `<button class="opcao perigo" data-acao="excluir-grupo" data-id="${id}"><span class="op-icone">🗑️</span><div><div>Excluir todas as parcelas</div>
+      <div class="desc">Apaga as ${Dados.itens().filter(i => i.grupo === item.grupo).length} parcelas desta compra.</div></div></button>` : ''}
     <div class="acoes">
-      <button type="button" data-acao="excluir" data-id="${id}">Excluir</button>
+      <button type="button" data-acao="excluir" data-id="${id}">${item.grupo ? 'Excluir esta' : 'Excluir'}</button>
       <button type="button" class="principal" data-acao="salvar-edicao" data-id="${id}">Salvar</button>
     </div>`);
+}
+
+function painelFixa(id) {
+  const f = Dados.fixas().find(x => x.id === id);
+  if (!f) return;
+  const cats = categoriasDe(f.tipo);
+  abrirPainel(`<h2>🔁 Conta fixa</h2>
+    <div class="campos">
+      <div class="campo"><label for="x_titulo">O quê</label><input id="x_titulo" type="text" value="${esc(f.titulo)}"></div>
+      <div class="campo"><label for="x_valor">Valor</label><input id="x_valor" type="text" inputmode="decimal" value="${String(f.valor).replace('.', ',')}"></div>
+      <div class="campo"><label for="x_categoria">Categoria</label><select id="x_categoria">${cats.map(c =>
+        `<option value="${esc(c)}"${c === f.categoria ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select></div>
+      <div class="campo"><label for="x_dia">Todo dia</label><input id="x_dia" type="number" inputmode="numeric" min="1" max="31" value="${f.dia}"></div>
+    </div>
+    <p>Mudar o valor vale daqui para frente; o que já foi pago continua como estava.</p>
+    <button class="opcao perigo" data-acao="excluir-fixa" data-id="${id}"><span class="op-icone">🗑️</span><div><div>Parar de repetir</div>
+      <div class="desc">Apaga a conta fixa. Os pagamentos já lançados ficam.</div></div></button>
+    <div class="acoes">
+      <button type="button" data-acao="fechar">Cancelar</button>
+      <button type="button" class="principal" data-acao="salvar-fixa" data-id="${id}">Salvar</button>
+    </div>`);
+}
+
+/* ---------- revisão das coisas atrasadas: uma de cada vez ---------- */
+
+function abrirRevisao() {
+  App.revisao = { ids: Dados.itens().filter(eAtrasado).sort(ordemAgenda).map(i => i.id), i: 0, feitos: 0 };
+  painelRevisao();
+}
+
+function painelRevisao() {
+  const r = App.revisao;
+  while (r.i < r.ids.length && !Dados.itens().some(x => x.id === r.ids[r.i] && eAtrasado(x))) r.i++;
+  if (r.i >= r.ids.length) {
+    return abrirPainel(`<div class="revisao-fim"><div class="vazio-arte">🎉</div>
+      <h2>Tudo arrumado!</h2><p>${r.ids.length ? 'Nada mais ficou para trás. Bom trabalho.' : 'Não tem nada atrasado.'}</p>
+      <div class="acoes"><button type="button" class="principal" data-acao="fechar-revisao">Fechar</button></div></div>`);
+  }
+  const item = Dados.itens().find(x => x.id === r.ids[r.i]);
+  const dias = -diasAte(item.data);
+  abrirPainel(`<div class="revisao-topo"><strong>Arrumar o que ficou para trás</strong><span>${r.i + 1} de ${r.ids.length}</span></div>
+    <div class="revisao-barra"><div style="width:${Math.round(r.i / r.ids.length * 100)}%"></div></div>
+    <div class="revisao-cartao" data-tipo="${item.tipo}">
+      ${seloHTML(item)}
+      <div class="revisao-titulo">${esc(item.titulo)}</div>
+      <div class="item-info">era para ${esc(fmtDataCurta(item.data))}${item.hora ? ' às ' + esc(item.hora) : ''} · há ${dias} dia${dias === 1 ? '' : 's'}</div>
+    </div>
+    <div class="revisao-botoes">
+      <button type="button" class="rev rev-feito" data-acao="rev" data-o="feito"><b>✓</b>Já fiz</button>
+      <button type="button" class="rev" data-acao="rev" data-o="amanha"><b>→</b>Amanhã</button>
+      <button type="button" class="rev" data-acao="rev" data-o="semana"><b>📅</b>Semana que vem</button>
+      <button type="button" class="rev rev-apagar" data-acao="rev" data-o="apagar"><b>🗑</b>Apagar</button>
+    </div>
+    <button type="button" class="mini revisao-depois" data-acao="fechar-revisao">Depois eu vejo</button>`);
+}
+
+function responderRevisao(opcao) {
+  const r = App.revisao;
+  const id = r.ids[r.i];
+  if (opcao === 'feito') Dados.atualizar(id, { feito: true });
+  else if (opcao === 'amanha') Dados.atualizar(id, { data: paraISO(somarDias(new Date(), 1)) });
+  else if (opcao === 'semana') Dados.atualizar(id, { data: paraISO(somarDias(new Date(), 7)) });
+  else if (opcao === 'apagar') Dados.remover(id);
+  r.i++;
+  painelRevisao();
 }
 
 function painelAjustes() {
@@ -443,11 +791,17 @@ function painelAjustes() {
   abrirPainel(`<h2>Ajustes</h2>
     ${alerta}
     <h3>Seus dados</h3>
-    <button class="opcao" data-acao="exportar"><div><div>Fazer backup</div>
-      <div class="desc">Salva um arquivo com tudo. Guarde no Arquivos, iCloud ou Drive.</div></div></button>
-    <button class="opcao" data-acao="importar"><div><div>Restaurar backup</div>
+    <button class="opcao" data-acao="exportar"><span class="op-icone">💾</span><div><div>Fazer backup</div>
+      <div class="desc">${Avisos.nativo ? 'Salva um arquivo com tudo. Guarde no Drive ou mande para você mesmo.' : 'Salva um arquivo com tudo. Guarde no Arquivos, iCloud ou Drive.'}</div></div></button>
+    <button class="opcao" data-acao="importar"><span class="op-icone">📂</span><div><div>Restaurar backup</div>
       <div class="desc">Traz de volta um arquivo salvo, ou passa os dados para outro celular.</div></div></button>
     <div class="desc" style="margin:4px 2px 0">${e.itens.length} registro${e.itens.length === 1 ? '' : 's'} guardado${e.itens.length === 1 ? '' : 's'} neste aparelho.</div>
+
+    ${Dados.fixas().length ? '<h3>Contas fixas</h3><div class="lista">' + Dados.fixas().map(f =>
+      `<button class="opcao" data-acao="editar-fixa" data-id="${f.id}"><span class="op-icone">${EMOJI_CATEGORIA[f.categoria] || '🔁'}</span><div>
+       <div>${esc(f.titulo)} · ${esc(fmtMoeda(f.valor))}</div><div class="desc">${f.tipo === 'receita' ? 'entra' : 'sai'} todo dia ${f.dia}</div></div></button>`).join('') + '</div>' : ''}
+
+    ${Avisos.nativo ? avisosAjustesHTML() : ''}
 
     <h3>Palavras aprendidas</h3>
     ${aprendidas.length
@@ -457,12 +811,53 @@ function painelAjustes() {
            <button class="mini" data-acao="esquecer" data-palavra="${esc(p)}">Esquecer</button></div>`).join('') + '</div>'
       : '<p>Quando você corrigir a categoria de um lançamento, o Prumo memoriza a palavra e acerta na próxima vez.</p>'}
 
+    <h3>Ajuda</h3>
+    <button class="opcao" data-acao="tutorial"><span class="op-icone">🧭</span><div><div>Ver o tutorial de novo</div>
+      <div class="desc">A apresentação rápida de como usar o Prumo.</div></div></button>
+
     <h3>Sobre</h3>
     <p>O Prumo funciona sem internet e não manda nada para lugar nenhum. Tudo o que você anota fica guardado neste aparelho — por isso o backup importa.</p>
-    <button class="opcao" data-acao="instalar"><div><div>Como instalar na tela de início</div>
-      <div class="desc">Para abrir igual a um aplicativo, sem barra de navegador.</div></div></button>
-    <button class="opcao perigo" data-acao="apagar"><div><div>Apagar tudo</div>
+    ${Avisos.nativo ? '' : `<button class="opcao" data-acao="instalar"><span class="op-icone">📲</span><div><div>Como instalar na tela de início</div>
+      <div class="desc">Para abrir igual a um aplicativo, sem barra de navegador.</div></div></button>`}
+    <button class="opcao perigo" data-acao="apagar"><span class="op-icone">🗑️</span><div><div>Apagar tudo</div>
       <div class="desc">Remove todos os registros deste aparelho. Não tem volta.</div></div></button>`);
+}
+
+/* Seção "Avisos" dos Ajustes — só no app Android. */
+function avisosAjustesHTML() {
+  const min = Avisos.minutosAntes();
+  const opcoes = [0, 10, 30, 60, 120].map(m =>
+    `<button type="button" class="chip${m === min ? ' ativo' : ''}" data-acao="aviso-min" data-min="${m}">${m === 0 ? 'Na hora' : m < 60 ? m + ' min' : (m / 60) + ' h'}</button>`).join('');
+  const proximos = Avisos.plano().length;
+  const bloqueado = Avisos.permitido === false
+    ? `<div class="aviso">O Android está bloqueando as notificações do Prumo.</div>
+       <button class="opcao" data-acao="permitir-avisos"><span class="op-icone">🔓</span><div><div>Liberar avisos</div>
+       <div class="desc">Se não abrir a pergunta, vá em Ajustes do celular → Apps → Prumo → Notificações.</div></div></button>` : '';
+  return `<h3>Avisos</h3>
+    ${bloqueado}
+    <p>O Prumo avisa sozinho, mesmo fechado e com a tela bloqueada. Compromisso com hora avisa antes; sem hora, às 9 da manhã do dia.</p>
+    <div class="desc" style="margin:0 2px 6px">Avisar compromissos com hora:</div>
+    <div class="confirma-tipos">${opcoes}</div>
+    <div class="desc" style="margin:6px 2px 0">${proximos ? proximos + ' aviso' + (proximos === 1 ? '' : 's') + ' marcado' + (proximos === 1 ? '' : 's') + '.' : 'Nenhum aviso marcado agora.'}</div>
+    <div class="desc" style="margin:14px 2px 6px">Lembrete do que ficou para trás (domingo, 19h):</div>
+    <div class="confirma-tipos">
+      <button type="button" class="chip${Dados.carregar().revisaoSemanal !== false ? ' ativo' : ''}" data-acao="revisao-semanal" data-sim="1">Ligado</button>
+      <button type="button" class="chip${Dados.carregar().revisaoSemanal === false ? ' ativo' : ''}" data-acao="revisao-semanal" data-sim="0">Desligado</button>
+    </div>
+    <button class="opcao" data-acao="testar-aviso"><span class="op-icone">🔔</span><div><div>Testar aviso</div>
+      <div class="desc">Toca um aviso de teste daqui a 10 segundos.</div></div></button>
+
+    <h3>Alarme</h3>
+    <p>Diga "alarme", "alarma", "despertar" ou "me acorda" (ex.: <em>alarme 6h</em> ou <em>alarma daqui a 40 minutos</em>) e o Prumo toca como despertador: som do alarme do celular, vibração e a tela do alarme, com o celular bloqueado ou não, até você tocar em Parar ou Adiar. Também dá para ligar em qualquer compromisso, no Editar.</p>
+    ${Avisos.telaCheia ? '' : `<div class="aviso">O Android não está deixando o alarme acender a tela. Ele ainda toca, mas só aparece na barra de cima.</div>
+      <button class="opcao" data-acao="tela-cheia"><span class="op-icone">📱</span><div><div>Liberar alarme em tela cheia</div>
+      <div class="desc">Abre a tela do Android: ligue "Permitir notificações em tela cheia".</div></div></button>`}
+    ${Avisos.sobrepor ? '' : `<div class="aviso">Com o celular desbloqueado, o alarme aparece só como faixa no alto da tela. Para a tela do alarme (Parar e Adiar) abrir por cima de qualquer app, libere abaixo.</div>
+      <button class="opcao" data-acao="sobrepor"><span class="op-icone">🪟</span><div><div>Mostrar o alarme por cima de outros apps</div>
+      <div class="desc">Abre a tela do Android: ligue "Permitir exibição sobre outros apps" para o Prumo.</div></div></button>`}
+    <button class="opcao" data-acao="testar-alarme"><span class="op-icone">⏰</span><div><div>Testar alarme</div>
+      <div class="desc">Toca o alarme daqui a 10 segundos. Bloqueie a tela para ver.</div></div></button>
+    <p class="desc">Em celular Samsung ou Xiaomi, se algum aviso não chegar: Ajustes do celular → Apps → Prumo → Bateria → <strong>Sem restrições</strong>.</p>`;
 }
 
 function painelInstalar() {
@@ -490,6 +885,7 @@ function painelInstalar() {
 function exportarBackup() {
   const texto = Dados.exportar();
   const nome = 'prumo-backup-' + hojeISO() + '.json';
+  if (Avisos.nativo) return exportarBackupAndroid(texto, nome);
   const blob = new Blob([texto], { type: 'application/json' });
   const arquivo = new File([blob], nome, { type: 'application/json' });
 
@@ -502,6 +898,18 @@ function exportarBackup() {
   a.href = url; a.download = nome;
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 20000);
+}
+
+/* No app Android o "baixar arquivo" do navegador não existe: grava o arquivo
+   no próprio app e abre o menu de compartilhar (Drive, WhatsApp, Arquivos…). */
+async function exportarBackupAndroid(texto, nome) {
+  const { Filesystem, Share } = window.Capacitor.Plugins;
+  try {
+    const r = await Filesystem.writeFile({ path: nome, data: texto, directory: 'CACHE', encoding: 'utf8' });
+    await Share.share({ title: 'Backup do Prumo', files: [r.uri], dialogTitle: 'Guardar o backup em…' });
+  } catch (e) {
+    if (!/cancel/i.test(String(e && e.message))) alert('Não consegui gerar o backup: ' + (e && e.message || e));
+  }
 }
 
 function importarBackup() {
@@ -548,11 +956,64 @@ document.addEventListener('click', evento => {
   const acao = alvo.dataset.acao;
   const id = alvo.dataset.id;
 
-  if (acao === 'fundo' && evento.target === alvo) return fecharPainel();
+  if (acao === 'fundo' && evento.target === alvo) { fecharPainel(); return render(); }
   if (acao === 'fechar') return fecharPainel();
-  if (acao === 'fechar-recado') { App.recado = null; return render(); }
+  if (acao === 'fechar-recado') { App.recado = null; App.recadoTexto = null; return render(); }
+
+  if (acao === 'revisao') return abrirRevisao();
+  if (acao === 'rev') return responderRevisao(alvo.dataset.o);
+  if (acao === 'fechar-revisao') { App.revisao = null; fecharPainel(); return render(); }
+  if (acao === 'revisao-semanal') {
+    Dados.carregar().revisaoSemanal = alvo.dataset.sim === '1';
+    Dados.salvar(); return painelAjustes();
+  }
+
+  if (acao === 'add-parcelas' || acao === 'add-fixa') {
+    App.rascunho = lerCampos(App.rascunho, 'c_');
+    if (acao === 'add-parcelas') App.rascunho.parcelas = 2;
+    else App.rascunho.todoDia = +(App.rascunho.data || hojeISO()).slice(8, 10);
+    renderConfirma();
+    const campo = document.getElementById(acao === 'add-parcelas' ? 'c_parcelas' : 'c_todoDia');
+    if (campo) { campo.focus(); campo.select(); }
+    return;
+  }
+  if (acao === 'pagar-fixa') {
+    const pago = pagarFixa(id, alvo.dataset.ym);
+    App.recadoTexto = pago ? (pago.tipo === 'receita' ? 'Recebido: ' : 'Pago: ') + pago.titulo + ', ' + fmtMoeda(pago.valor) + '.' : null;
+    return render();
+  }
+  if (acao === 'editar-fixa') return painelFixa(id);
+  if (acao === 'salvar-fixa') {
+    const v = numeroBR(document.getElementById('x_valor').value.replace(/[^\d.,]/g, ''));
+    const dia = parseInt(document.getElementById('x_dia').value, 10);
+    if (!v) return alert('Falta o valor.');
+    if (!(dia >= 1 && dia <= 31)) return alert('O dia precisa ser de 1 a 31.');
+    Dados.atualizarFixa(id, { titulo: document.getElementById('x_titulo').value.trim() || 'Conta fixa',
+      valor: v, dia, categoria: document.getElementById('x_categoria').value });
+    fecharPainel(); return render();
+  }
+  if (acao === 'excluir-fixa') {
+    if (!confirm('Parar de repetir esta conta?\n\nOs pagamentos já lançados continuam guardados.')) return;
+    Dados.removerFixa(id); fecharPainel(); return render();
+  }
+  if (acao === 'excluir-grupo') {
+    const item = Dados.itens().find(i => i.id === id);
+    const doGrupo = Dados.itens().filter(i => i.grupo === item.grupo);
+    if (!confirm('Apagar as ' + doGrupo.length + ' parcelas desta compra?')) return;
+    doGrupo.forEach(i => Dados.remover(i.id)); fecharPainel(); return render();
+  }
 
   if (acao === 'tipo') return trocarTipo(alvo.dataset.tipo);
+  if (acao === 'sugestao') {
+    const campo = document.getElementById('campoEntrada');
+    campo.value = alvo.dataset.frase;
+    mostrarSugestoes(false);
+    campo.focus();
+    campo.setSelectionRange(campo.value.length, campo.value.length);
+    return;
+  }
+  if (acao === 'ir-aba') { App.aba = alvo.dataset.aba; App.recado = null; App.recadoTexto = null; return render(); }
+  if (acao === 'tutorial') { fecharPainel(); return Tutorial.abrir(); }
   if (acao === 'cancelar') { App.rascunho = null; renderConfirma(); return; }
   if (acao === 'salvar') return salvarRascunho();
 
@@ -593,6 +1054,20 @@ document.addEventListener('click', evento => {
 
   if (acao === 'exportar') return exportarBackup();
   if (acao === 'importar') return importarBackup();
+  if (acao === 'aviso-min') {
+    Dados.carregar().avisoMinutos = Number(alvo.dataset.min);
+    Dados.salvar(); return painelAjustes();
+  }
+  if (acao === 'testar-aviso') return Avisos.testar();
+  if (acao === 'testar-alarme') return Avisos.testarAlarme();
+  if (acao === 'tela-cheia') return Avisos.nativoPrumo().abrirAjustesTelaCheia();
+  if (acao === 'sobrepor') return Avisos.nativoPrumo().abrirAjustesSobrepor();
+  if (acao === 'permitir-avisos') {
+    return Avisos.pedirPermissao().then(ok => {
+      if (!ok) alert('O Android não abriu a pergunta. Vá em Ajustes do celular → Apps → Prumo → Notificações e ligue.');
+      render(); if (document.querySelector('#painel h2')) painelAjustes();
+    });
+  }
   if (acao === 'esquecer') { Dados.esquecer(alvo.dataset.palavra); return painelAjustes(); }
   if (acao === 'instalar') return painelInstalar();
   if (acao === 'apagar') {
@@ -602,16 +1077,44 @@ document.addEventListener('click', evento => {
   }
 });
 
+/* A dica das parcelas/conta fixa acompanha o que se digita nos campos. */
+document.addEventListener('input', evento => {
+  if (!App.rascunho || !/^c_(valor|parcelas|todoDia|data)$/.test(evento.target.id || '')) return;
+  const dica = document.getElementById('c_dica');
+  if (!dica) return;
+  const texto = dicaDinheiro(lerCampos(App.rascunho, 'c_'));
+  dica.textContent = texto; dica.hidden = !texto;
+});
+
+/* Os exemplos aparecem com a caixa vazia e em foco, e somem ao digitar. */
+function mostrarSugestoes(sim) {
+  const s = document.getElementById('sugestoes');
+  if (sim && !App.rascunho) { s.innerHTML = '<div class="sugestoes-rotulo">Experimente, toque num exemplo:</div>' + sugestoesHTML(); s.hidden = false; }
+  else s.hidden = true;
+}
+
 function iniciar() {
   document.getElementById('formEntrada').addEventListener('submit', aoEnviar);
 
+  const hoje = new Date();
+  const dataTexto = DIA_LONGO[hoje.getDay()] + ', ' + hoje.getDate() + ' de ' + NOMES_MES[hoje.getMonth()];
+  document.getElementById('dataHoje').textContent = dataTexto.charAt(0).toUpperCase() + dataTexto.slice(1);
+
+  const campo = document.getElementById('campoEntrada');
+  campo.addEventListener('focus', () => mostrarSugestoes(!campo.value));
+  campo.addEventListener('input', () => mostrarSugestoes(!campo.value));
+  campo.addEventListener('blur', () => setTimeout(() => mostrarSugestoes(false), 150));
+  // Tocar num exemplo não pode tirar o foco antes do clique chegar.
+  document.getElementById('sugestoes').addEventListener('pointerdown', e => e.preventDefault());
+
   document.querySelectorAll('.aba').forEach(b => b.addEventListener('click', () => {
-    App.aba = b.dataset.aba; App.busca = null; App.recado = null;
+    App.aba = b.dataset.aba; App.busca = null; App.recado = null; App.recadoTexto = null;
     document.getElementById('linhaBusca').hidden = true;
     render();
   }));
 
   document.getElementById('btAjustes').addEventListener('click', painelAjustes);
+  document.getElementById('btAjuda').addEventListener('click', () => { fecharPainel(); Tutorial.abrir(); });
 
   const linhaBusca = document.getElementById('linhaBusca');
   const campoBusca = document.getElementById('campoBusca');
@@ -627,6 +1130,7 @@ function iniciar() {
   window.addEventListener('scroll', () => topo.classList.toggle('rolado', window.scrollY > 4), { passive: true });
 
   render();
+  if (Tutorial.precisa()) Tutorial.abrir();
 
   if (Dados.itens().length && Dados.diasSemBackup() >= 21) {
     setTimeout(() => {
@@ -636,7 +1140,58 @@ function iniciar() {
     }, 800);
   }
 
-  if ('serviceWorker' in navigator) {
+  if (Avisos.nativo) {
+    Avisos.preparar().then(() => renderConfirma());
+
+    // Botão 🎤: fala → texto → mesma confirmação de quando se digita.
+    const btVoz = document.getElementById('btVoz');
+    btVoz.hidden = false;
+    btVoz.addEventListener('click', async () => {
+      try {
+        const texto = await Avisos.ouvir();
+        if (!texto) return;
+        const campo = document.getElementById('campoEntrada');
+        campo.value = texto;
+        aoEnviar({ preventDefault() {} });
+      } catch (e) {
+        alert((e && e.message) || 'Não consegui ouvir. Tente o microfone do teclado.');
+      }
+    });
+
+    // Widget e atalhos do ícone: o Android abre o app com um pedido ("falar",
+    // "anotar"). Chega na abertura e também quando o app volta do fundo.
+    const tratarPedido = async () => {
+      let pedido = null;
+      try { pedido = (await Avisos.nativoPrumo().acaoPendente()).acao; } catch (e) { return; }
+      if (!pedido || Tutorial.aberto) return;
+      fecharPainel(); App.busca = null;
+      if (pedido === 'falar') btVoz.click();
+      else if (pedido === 'anotar') {
+        const campo = document.getElementById('campoEntrada');
+        campo.focus();
+        Avisos.nativoPrumo().mostrarTeclado().catch(() => {});
+      } else if (pedido === 'revisao') abrirRevisao();
+    };
+    tratarPedido();
+    if (window.Capacitor.Plugins.App) window.Capacitor.Plugins.App.addListener('resume', tratarPedido);
+
+    // Voltando ao app (ex.: depois de liberar a tela cheia), confere de novo.
+    document.addEventListener('visibilitychange', async () => {
+      if (document.hidden) return;
+      await Avisos.lerEstadoAlarme();
+      if (document.querySelector('#painel h2') && document.querySelector('[data-acao="testar-alarme"]')) painelAjustes();
+    });
+    // Botão "voltar" do Android: fecha o painel aberto em vez de sair do app.
+    const AppNativo = window.Capacitor.Plugins.App;
+    if (AppNativo) AppNativo.addListener('backButton', () => {
+      if (Tutorial.aberto) return Tutorial.voltar();
+      if (document.getElementById('painel').innerHTML) { fecharPainel(); return render(); }
+      if (App.rascunho) { App.rascunho = null; return renderConfirma(); }
+      if (App.busca !== null) { document.getElementById('btBusca').click(); return; }
+      if (App.aba !== 'hoje') { App.aba = 'hoje'; return render(); }
+      AppNativo.minimizeApp();
+    });
+  } else if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 }

@@ -9,7 +9,16 @@
     "servir": "python3 -m http.server 8177 --bind 127.0.0.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.6.2",
     "@playwright/test": "^1.63.0"
   },
-  "private": true
+  "private": true,
+  "dependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/app": "^8.1.2",
+    "@capacitor/core": "^8.6.2",
+    "@capacitor/filesystem": "^8.1.5",
+    "@capacitor/local-notifications": "^8.3.1",
+    "@capacitor/share": "^8.0.3"
+  }
 }

@@ -34,7 +34,7 @@ function montarICS(item, minutosAntes) {
              p(x.getHours()) + p(x.getMinutes()) + '00';
     };
     linhas.push('DTSTART:' + local(inicio), 'DTEND:' + local(fim));
-    gatilho = '-PT' + (minutosAntes || 30) + 'M';
+    gatilho = item.naHora ? 'PT0M' : '-PT' + (minutosAntes || 30) + 'M';   // "daqui a 40 min": na hora
   } else {
     const seguinte = new Date(+a, +m - 1, +d + 1);
     const p = n => String(n).padStart(2, '0');

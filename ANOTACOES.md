@@ -27,7 +27,7 @@ escrevendo ou ditando uma frase solta. Nasceu como resposta ao "Meu Assessor"
 ## Os arquivos
 
 ```
-~/Prumo/
+~/Projetos/Sistemas/Prumo/
 ├── index.html            a página e a estrutura das telas
 ├── estilo.css            visual, claro e escuro, margens de iPhone e Android
 ├── interpretador.js      o coração: transforma frase solta em registro
@@ -57,8 +57,8 @@ que vem — `consulta 12/03` dita em setembro marca 2027.
 ## Testes
 
 ```
-~/Prumo/testes/rodar.sh            tudo (leva ~10 s)
-~/Prumo/testes/rodar.sh rapido     só as instantâneas, sem navegador
+~/Projetos/Sistemas/Prumo/testes/rodar.sh            tudo (leva ~10 s)
+~/Projetos/Sistemas/Prumo/testes/rodar.sh rapido     só as instantâneas, sem navegador
 ```
 
 São três camadas:
@@ -156,3 +156,96 @@ vêm primeiro.
 - Enquanto não estiver publicado, dá para espiar do celular no mesmo wi-fi, mas
   sem instalar nem funcionar offline — isso exige endereço seguro (https).
 - Os dados existem **só no aparelho**. Backup não é enfeite.
+
+## Versão Android (21/11/2026)
+
+APK próprio com **avisos tocados pelo próprio Prumo**, sem calendário e sem servidor.
+O site (iPhone) continua igual, com o "Pôr no calendário".
+
+- Embalado com **Capacitor 8** (`capacitor.config.json`, pasta `android/`).
+  O mesmo código serve os dois: `Avisos.nativo` diz se está no app Android.
+- `avisos.js`: a cada salvamento cancela e reagenda tudo (até 60 avisos mais próximos)
+  pelo despertador do sistema (`@capacitor/local-notifications`, `allowWhileIdle`).
+  Compromisso com hora: X min antes (Ajustes: na hora/10/30/60/120, padrão 30).
+  Sem hora: 9h do dia. Notificação com botões **Adiar 10 min** e **Feito**.
+- Permissão `USE_EXACT_ALARM` no manifesto: alarme exato liberado sem ir em Ajustes.
+- Backup no Android: grava no app e abre o compartilhar (`@capacitor/filesystem` + `share`).
+- Botão voltar do Android fecha painel/rascunho/busca antes de sair (`@capacitor/app`).
+- **Gerar o APK:** `prumo apk` (ou `./montar-apk.sh`) → `Prumo.apk` nesta pasta.
+  Precisa Java 21 (`jdk21-openjdk`) e o kit Android em `~/Android/Sdk`.
+- **Chave de assinatura:** `~/.android/debug.keystore` (cópia em
+  `~/Documentos/Prumo-chave-android`). Sem ela, a versão nova não instala por cima
+  da antiga — teria que desinstalar e perder os dados.
+- Provas: `testes/avisos-prova.js` (17, com Android simulado em `testes/stubs-android.js`).
+  As provas rápidas agora rodam com Node quando não há `gjs` (CachyOS).
+- Não testado em Android simulado: a virtualização (SVM) está desligada na BIOS.
+
+### Alarme de verdade + microfone (21/11/2026, mesma noite)
+
+- **Alarme:** frase com "alarme", "despertar" ou "acord…" (e hora) vira `alarme: true`;
+  hora já passada hoje vai para amanhã. Também há a caixinha "⏰ Tocar como alarme"
+  na confirmação/Editar. Alarme toca na hora exata (sem antecedência).
+- Código nativo próprio em `android/app/src/main/java/io/github/pimentelcode/prumo/`:
+  `Alarmes` (setAlarmClock + lista salva p/ reiniciar), `AlarmeReceiver`,
+  `AlarmeService` (som de alarme do celular em volta + vibração, para sozinho em 10 min),
+  `AlarmeActivity` (tela acesa por cima do bloqueio: Parar / Adiar 10 min),
+  `PrumoPlugin` (ponte JS: definirAlarmes, testarAlarme, estadoAlarme, ouvir).
+- **Microfone 🎤:** botão ao lado do Anotar (só no APK) abre o reconhecimento de
+  voz do Android em pt-BR; o texto cai na mesma confirmação de quando se digita.
+- Android 14+ pode negar "notificação em tela cheia": aí o alarme toca mas só
+  aparece na barra. Ajustes → Alarme mostra o botão para liberar.
+
+## 22/11/2026 — tutorial da primeira vez + visual novo
+
+- Testado no celular dele (21–22/11): avisos, alarme e lançamento de gastos funcionando.
+- **Tutorial** (`tutorial.js`): 6 telas que passam com o dedo (scroll-snap), na primeira
+  abertura; fica marcado em `localStorage['prumo.tutorial.visto']`. Rever: Ajustes →
+  "Ver o tutorial de novo". A tela de avisos muda entre app Android e site/iPhone.
+  Botão "voltar" do Android anda para trás no tutorial.
+- **Visual**: cada tipo tem cor própria (Saiu vermelho, Entrou verde, Compromisso azul,
+  Tarefa âmbar, Anotação roxo) via `data-tipo` no CSS; selo à esquerda do item (emoji da
+  categoria nos gastos, hora nos compromissos); "Entendi assim" na confirmação; exemplos
+  tocáveis ao focar a caixa vazia; resumo do dia na aba Hoje; cartão de saldo e barras
+  coloridas com % no Dinheiro; abas com marcador; topo em degradê com a data.
+- **Ícone novo**: `python3 gerar-icones.py` refaz site, iPhone, mipmaps do Android (fundo
+  adaptativo em `drawable/fundo_icone.xml`) e a splash. Antigos em
+  `backups/antes-tutorial-visual-2026-11-22/`.
+- Provas: 24 navegador × 2 telas = 48, incluindo 4 novas do tutorial/exemplos.
+
+## 22/11/2026 (tarde) — widget, atalhos, parcelas, contas fixas e revisão
+
+- **Widget 4×1** (`PrumoWidget.java`, `layout/widget_prumo.xml`): gasto de hoje + próximo
+  compromisso/tarefa, botões 🎤 Falar e ✍️ Anotar. O JS manda o resumo a cada salvamento
+  (`Avisos.atualizarWidget` → `Prumo.atualizarWidget`); o Java escolhe o que mostrar agora
+  e o Android o redesenha a cada 30 min (virada do dia).
+- **Atalhos do ícone** (`xml/shortcuts.xml`): Falar / Anotar. Widget e atalhos abrem a
+  MainActivity com ação `…FALAR`/`…ANOTAR`; o JS busca com `acaoPendente()` na abertura e no
+  `resume`. "Anotar" usa `mostrarTeclado()` (o foco sozinho não abre o teclado no Android).
+- **Parcelas**: "TV 1.200 em 10x", "10x de 120", "parcelado em 12" → N lançamentos (`grupo`,
+  `parcela: '3/10'`), centavos na última. Parcela de data futura não conta em "Saiu": entra em
+  "Ainda vai sair". Editar → "Excluir todas as parcelas".
+- **Contas fixas** (`Dados.fixas()`, entram no backup): "aluguel 900 todo dia 5", "por mês",
+  "salário 4200 todo dia 5" (entrada). São virtuais: cada mês mostra a pagar até tocar em
+  "Paguei", que cria um lançamento com `fixaId`. Se o dia já passou no mês da criação, começa
+  no mês que vem. Aviso às 9h do vencimento com botões "Paguei" / "Lembrar amanhã".
+- **Revisão do que ficou para trás**: faixa em Hoje → uma de cada vez (Já fiz / Amanhã /
+  Semana que vem / Apagar). Aviso no domingo 19h (id 2) se houver atrasados; liga/desliga
+  em Ajustes → Avisos. Notificação comum ganhou o botão "Amanhã".
+- Corrigido: com a confirmação aberta o topo deixa de ser fixo (`body.confirmando`) —
+  em celular pequeno o "Guardar" ficava escondido atrás das abas.
+- Provas: 28 × 2 no navegador + 22 novas nas rápidas. Widget/atalhos só testáveis no aparelho.
+- Tutorial atualizado (22/11, noite): + "Parcelas e contas fixas", "Nada fica acumulado" e, só no
+  app Android, "Anote sem abrir o app" (widget/atalhos) → 9 telas no Android, 8 no site.
+  Botão **?** fixo no topo (`#btAjuda`) reabre a apresentação a qualquer hora (além de Ajustes).
+
+## 22/11/2026 (noite) — alarme por cima de tudo e "daqui a 40 minutos"
+- Tela do alarme com o celular DESBLOQUEADO: o AlarmeService chama startActivity(AlarmeActivity)
+  além da notificação de tela cheia. O Android só aceita se o Prumo tiver "aparecer sobre outros
+  apps" (SYSTEM_ALERT_WINDOW, no manifest); sem ela vira só a faixa no alto, como antes.
+  Ajustes e o recado de "Guardado" oferecem o botão de liberar (abrirAjustesSobrepor).
+- interpretador.js: acharDaqui() — "daqui a 40 minutos", "daqui 2 horas", "em meia hora",
+  "daqui a uma hora e meia", "em 1h30", números por extenso. Roda antes de acharHora.
+  Item ganha naHora: o aviso toca na hora exata (sem os 30 min de antecedência), também no .ics.
+- Alarme reconhece "alarma", "alarmar", "me chama/chame"; título só de palavras de alarme vira "Alarme".
+- Spotify/Deezer no alarme: descartado (exige conta de desenvolvedor, internet e Premium; fere
+  "dados só no aparelho"). Alternativa oferecida: escolher uma música salva no celular.

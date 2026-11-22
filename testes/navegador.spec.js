@@ -4,10 +4,11 @@
 
 const { test, expect } = require('@playwright/test');
 
-/* Abre o app sempre limpo, como se fosse a primeira vez. */
+/* Abre o app sempre limpo, como se fosse a primeira vez — mas com o tutorial
+   já visto, para ele não ficar na frente das outras provas. */
 async function abrirLimpo(page) {
   await page.goto('index.html');
-  await page.evaluate(() => localStorage.clear());
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('prumo.tutorial.visto', '1'); });
   await page.reload();
   await expect(page.locator('#campoEntrada')).toBeVisible();
 }
@@ -106,7 +107,7 @@ test('compromisso com hora vai para a Agenda', async ({ page }) => {
 
   await expect(abaAtiva(page)).toContainText('Agenda');
   await expect(page.locator('.item-titulo')).toContainText(/dentista/i);
-  await expect(page.locator('.item-info')).toContainText('15:00');
+  await expect(page.locator('.item .selo-hora')).toContainText('15:00');
   await page.click('[data-acao="fechar-recado"]');
   await expect(page.locator('#conteudo [data-acao="calendario"]')).toBeVisible();
 });
@@ -225,7 +226,7 @@ test('os botões têm o tamanho mínimo para o dedo (44 px)', async ({ page }) =
   await guardar(page);
 
   const pequenos = await page.evaluate(() => {
-    const alvos = ['#btBusca', '#btAjustes', '.mes .icone-botao', '.aba'];
+    const alvos = ['#btAjuda', '#btBusca', '#btAjustes', '.mes .icone-botao', '.aba'];
     const fora = [];
     for (const sel of alvos) {
       for (const e of document.querySelectorAll(sel)) {
@@ -301,4 +302,150 @@ test('o app abre sem internet depois da primeira visita', async ({ page, context
   await expect(page.locator('#campoEntrada')).toBeVisible();
   await page.click('.aba[data-aba="dinheiro"]');
   await expect(page.locator('.valor.saiu')).toContainText('180,00');
+});
+
+test('o tutorial aparece na primeira vez e não volta depois', async ({ page }) => {
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+
+  const tut = page.locator('#tutorial');
+  await expect(tut).toBeVisible();
+  // No site são 8 telas (a do widget é só do app Android).
+  const total = await page.locator('.tut-slide').count();
+  expect(total).toBe(8);
+  await expect(page.locator('#tutPasso')).toHaveText('1 de ' + total);
+
+  // Anda até o fim pelos botões, conferindo que cada tela chega.
+  for (let n = 2; n <= total; n++) {
+    await page.click('#tutProximo');
+    await expect(page.locator('#tutPasso')).toHaveText(n + ' de ' + total);
+  }
+  await expect(page.locator('#tutProximo')).toHaveText('Começar a usar');
+  await page.click('#tutVoltar');
+  await expect(page.locator('#tutPasso')).toHaveText((total - 1) + ' de ' + total);
+  await page.click('#tutProximo');
+  await page.click('#tutProximo');
+  await expect(tut).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.locator('#campoEntrada')).toBeVisible();
+  await expect(tut).toHaveCount(0);
+});
+
+test('pular fecha o tutorial, e dá para rever pelos Ajustes', async ({ page }) => {
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.click('.tut-pular');
+  await expect(page.locator('#tutorial')).toHaveCount(0);
+
+  await page.click('#btAjustes');
+  await page.click('[data-acao="tutorial"]');
+  await expect(page.locator('#tutorial')).toBeVisible();
+  await expect(page.locator('#tutPasso')).toHaveText(/^1 de /);
+});
+
+test('o botão ? no topo reabre a apresentação a qualquer hora', async ({ page }) => {
+  await expect(page.locator('#btAjuda')).toBeVisible();
+  await page.click('#btAjuda');
+  await expect(page.locator('#tutorial')).toBeVisible();
+  await expect(page.locator('#tutPasso')).toHaveText(/^1 de /);
+  await expect(page.locator('.tut-slide h2').filter({ hasText: 'Parcelas e contas fixas' })).toHaveCount(1);
+  await expect(page.locator('.tut-slide h2').filter({ hasText: 'Nada fica acumulado' })).toHaveCount(1);
+  await page.click('.tut-pular');
+  await expect(page.locator('#tutorial')).toHaveCount(0);
+});
+
+test('o tutorial passa com o dedo e não rola a página de lado', async ({ page }) => {
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.locator('#tutTrilho').evaluate(t => t.scrollTo({ left: t.clientWidth * 2 }));
+  await expect(page.locator('#tutPasso')).toHaveText('3 de 8');
+  const folga = await page.evaluate(() =>
+    document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(folga).toBeLessThanOrEqual(0);
+});
+
+test('tocar num exemplo preenche a caixa', async ({ page }) => {
+  await page.locator('.vazio .sugestao').first().click();
+  await expect(page.locator('#campoEntrada')).toHaveValue('paguei 45 no almoço');
+  await page.press('#campoEntrada', 'Enter');
+  await expect(page.locator('.chip.ativo')).toHaveText('Saiu');
+});
+
+test('compra parcelada vira uma parcela por mês', async ({ page }) => {
+  await anotar(page, 'comprei a TV 1.200 em 10x');
+  await expect(page.locator('#c_parcelas')).toHaveValue('10');
+  await expect(page.locator('#c_dica')).toContainText('10 × R$ 120,00');
+  await guardar(page);
+
+  await expect(page.locator('.recado')).toContainText('10 parcelas');
+  await expect(page.locator('.item-info').filter({ hasText: 'parcela 1/10' })).toBeVisible();
+  await page.click('[data-acao="mes"][data-passo="1"]');
+  await expect(page.locator('.item-info').filter({ hasText: 'parcela 2/10' })).toBeVisible();
+  await expect(page.locator('.previsao')).toContainText('Ainda vai sair');
+
+  // Apagar todas de uma vez pelo Editar
+  await page.locator('.item-corpo').first().click();
+  page.once('dialog', d => d.accept());
+  await page.click('[data-acao="excluir-grupo"]');
+  await page.click('[data-acao="mes"][data-passo="-1"]');
+  await expect(page.locator('.item-info').filter({ hasText: 'parcela' })).toHaveCount(0);
+});
+
+test('conta fixa aparece todo mês e "Paguei" lança o pagamento', async ({ page }) => {
+  const dia = new Date().getDate();           // vence hoje: aparece em Hoje também
+  await anotar(page, `internet 120 todo dia ${dia}`);
+  await expect(page.locator('#c_todoDia')).toHaveValue(String(dia));
+  await expect(page.locator('#c_data')).toHaveCount(0);
+  await guardar(page);
+
+  await expect(abaAtiva(page)).toContainText('Dinheiro');
+  const fixa = page.locator('.item.fixa');
+  await expect(fixa).toContainText('Internet');
+  await expect(page.locator('.previsao')).toContainText('120,00');
+
+  await page.click('.aba[data-aba="hoje"]');
+  await expect(page.locator('.secao-titulo').filter({ hasText: 'Contas para pagar' })).toBeVisible();
+  await page.click('[data-acao="pagar-fixa"]');
+  await expect(page.locator('.recado')).toContainText('Pago: Internet');
+
+  await page.click('.aba[data-aba="dinheiro"]');
+  await expect(fixa).toContainText('✓ pago');
+  await expect(page.locator('.resumo .numero.saiu')).toContainText('120,00');
+
+  // e no mês que vem ela volta, a pagar
+  await page.click('[data-acao="mes"][data-passo="1"]');
+  await expect(page.locator('[data-acao="pagar-fixa"]')).toBeVisible();
+});
+
+test('botão "Repete todo mês" transforma um gasto em conta fixa', async ({ page }) => {
+  await anotar(page, 'paguei 80 de academia');
+  await page.click('[data-acao="add-fixa"]');
+  await expect(page.locator('#c_todoDia')).toBeVisible();
+  await expect(page.locator('#c_dica')).toContainText('Conta fixa');
+});
+
+test('revisão do que ficou para trás: uma de cada vez', async ({ page }) => {
+  await page.evaluate(() => {
+    const d = n => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+    const t = (titulo, n) => ({ id: 't' + titulo, tipo: 'tarefa', titulo, data: d(n), hora: null, feito: false, texto: '', criadoEm: '' });
+    localStorage.setItem('prumo.dados.v1', JSON.stringify({ itens: [t('Ligar pro banco', -3), t('Mandar e-mail', -1), t('Pagar boleto', -2)], aprendidas: {}, ultimoBackup: new Date().toISOString() }));
+  });
+  await page.reload();
+  await expect(page.locator('.revisao-banner')).toContainText('3 coisas ficaram para trás');
+  await page.click('.revisao-banner');
+
+  await expect(page.locator('.revisao-topo')).toContainText('1 de 3');
+  await expect(page.locator('.revisao-titulo')).toHaveText('Ligar pro banco');   // a mais antiga primeiro
+  await page.click('[data-o="feito"]');
+  await expect(page.locator('.revisao-titulo')).toHaveText('Pagar boleto');
+  await page.click('[data-o="amanha"]');
+  await page.click('[data-o="apagar"]');
+  await expect(page.locator('.revisao-fim')).toContainText('Tudo arrumado');
+  await page.click('[data-acao="fechar-revisao"]');
+
+  await expect(page.locator('.revisao-banner')).toHaveCount(0);
+  await page.click('.aba[data-aba="tarefas"]');
+  await expect(page.locator('.item-titulo').filter({ hasText: 'Pagar boleto' })).toBeVisible();
+  await expect(page.locator('.item-titulo').filter({ hasText: 'Mandar e-mail' })).toHaveCount(0);
 });
