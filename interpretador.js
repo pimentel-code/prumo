@@ -311,21 +311,63 @@ const NUM = '(\\d[\\d.]*(?:,\\d{1,2})?)';
 
 /* "em 10x", "em 10 vezes", "parcelado em 12", "10x de 120", "em 3x sem juros".
    Devolve { n, parcela } — parcela só quando a frase diz o valor de cada uma. */
+/* Número de parcelas dito por extenso: o microfone do Android escreve
+   "em quatro vezes", não "em 4 vezes". */
+const PARCELAS_FALADAS = {
+  dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9,
+  dez: 10, onze: 11, doze: 12, treze: 13, catorze: 14, quatorze: 14, quinze: 15,
+  dezesseis: 16, dezessete: 17, dezoito: 18, dezenove: 19, vinte: 20,
+  'vinte e quatro': 24, trinta: 30, 'trinta e seis': 36, 'quarenta e oito': 48
+};
+
+/* "em 4x", "em 4 vezes", "em quatro vezes", "parcelado em 4x", "dividido em 4 vezes",
+   "parcelei o sapato em 4", "no cartão em 4x", "em 4 parcelas/prestações",
+   "4x de 50", "4 parcelas de 50", "sem juros". */
 function acharParcelas(f) {
+  const palavras = Object.keys(PARCELAS_FALADAS).sort((a, b) => b.length - a.length).join('|');
+  const N = '(\\d{1,2}|' + palavras + ')';
+  const qtd = t => /^\d/.test(t) ? +t : PARCELAS_FALADAS[t];
+  const verbo = '(?:(?:parcelad[oa]s?|dividid[oa]s?|parcelei|dividi|pag[oa]s?|paguei)\\s+)?';
+  const cartao = '(?:(?:no|pelo)\\s+cartao(?:\\s+de\\s+credito)?\\s+)?';
+  const unidade = '(?:x|vezes|parcelas?|prestac(?:ao|oes))';
+  const deValor = '(?:\\s+de\\s+(?:r\\$\\s*)?' + NUM + ')?';
+  const juros = '(?:\\s+(?:sem|com)\\s+juros)?';
   const tentativas = [
-    new RegExp('\\b(?:parcelad[oa]s?\\s+)?em\\s+(\\d{1,2})\\s*(?:x|vezes|parcelas?)(?:\\s+de\\s+(?:r\\$\\s*)?' + NUM + ')?(?:\\s+sem\\s+juros)?\\b'),
-    new RegExp('\\bparcelad[oa]s?\\s+em\\s+(\\d{1,2})()\\b'),
-    new RegExp('\\b(\\d{1,2})\\s*(?:x|vezes|parcelas)\\s+de\\s+(?:r\\$\\s*)?' + NUM + '(?:\\s+sem\\s+juros)?')
+    new RegExp('\\b' + verbo + cartao + 'em\\s+' + N + '\\s*' + unidade + '\\b' + deValor + juros + '\\b'),
+    new RegExp('\\b(?:parcelad[oa]s?|dividid[oa]s?)\\s+' + cartao + 'em\\s+' + N + '()\\b' + juros),
+    new RegExp('\\b' + N + '\\s*' + unidade + '\\s+de\\s+(?:r\\$\\s*)?' + NUM + juros)
   ];
   for (const re of tentativas) {
     const m = f.achar(re);
     if (!m) continue;
-    const n = +m[1];
-    if (n < 2 || n > 72) continue;
+    const n = qtd(m[1]);
+    if (!(n >= 2 && n <= 72)) continue;
     f.marcar(m.index, m.index + m[0].length);
+    tirarVerboParcela(f);
     return { n, parcela: m[2] ? numeroBR(m[2]) : null };
   }
+  // "parcelei o sapato de 200 em 4", "dividi a TV em 10": o verbo vem antes, o "em N" depois.
+  const v = f.achar(/\b(parcelei|dividi|parcelad[oa]s?|dividid[oa]s?)\b/);
+  if (v) {
+    const m = f.achar(new RegExp('\\bem\\s+' + N + '\\b(?!\\s*(?:de\\s+)?(?:' + Object.keys(MESES).join('|') + ')\\b)'));
+    if (m && m.index > v.index) {
+      const n = qtd(m[1]);
+      if (n >= 2 && n <= 72) {
+        f.marcar(m.index, m.index + m[0].length);
+        tirarVerboParcela(f);
+        return { n, parcela: null };
+      }
+    }
+  }
   return null;
+}
+
+/* "Dividi o sapato" → "o sapato": o verbo de parcelar não faz parte do título. */
+function tirarVerboParcela(f) {
+  for (const re of [/\b(parcelei|dividi|parcelad[oa]s?|dividid[oa]s?)\b/, /\b(?:no|pelo)\s+cartao(?:\s+de\s+credito)?\b/]) {
+    const m = f.achar(re);
+    if (m) f.marcar(m.index, m.index + m[0].length);
+  }
 }
 
 /* "todo dia 5", "todo santo dia 10", "todo mês", "por mês", "mensal".
@@ -369,9 +411,11 @@ const PREPOSICOES = ['de','do','da','dos','das','com','no','na','nos','nas','em'
                      'pro','a','ao','o','os','as','e','que','um','uma','ate','por'];
 
 function limparTitulo(texto) {
-  let partes = texto.replace(/\s+/g, ' ').trim().split(' ').filter(Boolean);
-  while (partes.length && PREPOSICOES.includes(semAcento(partes[0]))) partes.shift();
-  while (partes.length && PREPOSICOES.includes(semAcento(partes[partes.length - 1]))) partes.pop();
+  // Pedaço só de pontuação (a vírgula que sobrou de "200 reais, parcelado") não conta.
+  let partes = texto.replace(/\s+/g, ' ').trim().split(' ').filter(p => /[\p{L}\p{N}]/u.test(p));
+  const nua = p => semAcento(p.replace(/[.,;:!?]+$/, ''));
+  while (partes.length && PREPOSICOES.includes(nua(partes[0]))) partes.shift();
+  while (partes.length && PREPOSICOES.includes(nua(partes[partes.length - 1]))) partes.pop();
   let s = partes.join(' ').replace(/[\s,;.\-]+$/, '');
   if (!s) return '';
   return s.charAt(0).toUpperCase() + s.slice(1);

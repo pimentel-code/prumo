@@ -62,6 +62,25 @@ prova('moeda em português', () => fmtMoeda(1234.5).includes('1.234,50'));
 // ---- parcelas ----
 prova('"TV 1.200 em 10x" entende 10 parcelas', () => { const r = interpretar('comprei a TV 1.200 em 10x'); return r.tipo === 'gasto' && r.valor === 1200 && r.parcelas === 10 && r.titulo === 'TV'; });
 prova('"10x de 120" calcula o total', () => { const r = interpretar('celular em 10x de 120'); return r.valor === 1200 && r.parcelas === 10; });
+// Jeitos diferentes de falar a mesma compra parcelada (o microfone escreve "quatro").
+[
+  'comprei sapato de 200 reais em 4 vezes', 'comprei sapato de 200 reais em quatro vezes',
+  'comprei sapato de 200 reais parcelado em 4x', 'comprei sapato de 200 reais dividido em 4x',
+  'comprei sapato de 200 reais dividido em quatro vezes', 'Comprei sapato de 200 reais, parcelado em quatro vezes.',
+  'parcelei o sapato de 200 em 4', 'dividi o sapato de 200 em 4 vezes', 'comprei sapato de 200 em 4 parcelas',
+  'comprei sapato de 200 no cartão em 4 vezes', 'comprei sapato de 200 reais em 4 prestações',
+  'comprei sapato 4 parcelas de 50', 'comprei sapato em quatro vezes de 50'
+].forEach(frase => prova('"' + frase + '" = sapato, 200, 4 parcelas', () => {
+  const r = interpretar(frase);
+  return r.tipo === 'gasto' && r.valor === 200 && r.parcelas === 4 && r.titulo === 'Sapato';
+}));
+prova('"reunião em dez minutos" não vira parcela', () => !interpretar('reunião em dez minutos').parcelas);
+prova('sapato em 4x: R$ 50 em cada um dos 4 meses', () => {
+  const r = interpretar('comprei sapato de 200 reais em quatro vezes'); r.data = '2026-11-22';
+  const ps = criarParcelas(r);
+  return ps.length === 4 && ps.every(p => p.valor === 50) &&
+         ps.map(p => p.data).join() === '2026-11-22,2026-12-22,2027-01-22,2027-02-22';
+});
 prova('parcelas viram um lançamento por mês', () => {
   const antes = Dados.itens().length;
   const r = interpretar('geladeira 1.000 em 3x'); r.data = '2026-01-31';

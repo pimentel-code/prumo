@@ -392,6 +392,19 @@ test('compra parcelada vira uma parcela por mês', async ({ page }) => {
   await expect(page.locator('.item-info').filter({ hasText: 'parcela' })).toHaveCount(0);
 });
 
+test('"sapato de 200 reais em quatro vezes" (como o microfone escreve): R$ 50 nos 4 meses', async ({ page }) => {
+  await anotar(page, 'comprei sapato de 200 reais em quatro vezes');
+  await expect(page.locator('#c_parcelas')).toHaveValue('4');
+  await expect(page.locator('#c_dica')).toContainText('4 × R$ 50,00');
+  await guardar(page);
+  for (let k = 1; k <= 4; k++) {
+    await expect(page.locator('.item').filter({ hasText: 'parcela ' + k + '/4' })).toContainText('50');
+    if (k < 4) await page.click('[data-acao="mes"][data-passo="1"]');
+  }
+  await page.click('[data-acao="mes"][data-passo="1"]');
+  await expect(page.locator('.item-info').filter({ hasText: 'parcela' })).toHaveCount(0);
+});
+
 test('conta fixa aparece todo mês e "Paguei" lança o pagamento', async ({ page }) => {
   const dia = new Date().getDate();           // vence hoje: aparece em Hoje também
   await anotar(page, `internet 120 todo dia ${dia}`);

@@ -272,3 +272,10 @@ O site (iPhone) continua igual, com o "Pôr no calendário".
   a passo; iPhone: Safari → Tela de Início; PC: QR code). QR em icones/convite-qr.{svg,png}
   (gerado com o pacote npm qrcode). `prumo convite` mostra link e QR.
 - Só existe no ar depois do primeiro `prumo aprovar` (a página mora no ramo estavel).
+
+## 22/11/2026 — parcelas ditas de vários jeitos (v1.4)
+- Ele falou "comprei sapato de 200 reais em 4 vezes" e só entrou o valor cheio: o microfone do
+  Android escreve número pequeno por extenso ("em quatro vezes"), e acharParcelas só aceitava
+  algarismo. Agora aceita: por extenso (PARCELAS_FALADAS), "dividido/parcelado/parcelei/dividi",
+  "no cartão em", "parcelas/prestações", "parcelei o sapato de 200 em 4" (verbo antes, "em N" depois).
+- limparTitulo ignora pedaço só de pontuação ("Sapato de ," virava título).
