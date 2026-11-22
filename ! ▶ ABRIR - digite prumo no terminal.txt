@@ -1,7 +1,0 @@
-Este projeto abre por comando.
-
-No terminal, digite:
-
-    prumo
-
-Ele mostra o endereço para abrir no celular.
