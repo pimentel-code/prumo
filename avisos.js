@@ -161,7 +161,7 @@ const Avisos = {
     if (!this.nativo) return;
     const h = hojeISOAvisos();
     const itens = Dados.itens();
-    const gastoHoje = itens.filter(i => i.tipo === 'gasto' && i.data === h).reduce((t, i) => t + (i.valor || 0), 0);
+    const gastoHoje = itens.filter(i => i.tipo === 'gasto' && i.data === h && !i.compra).reduce((t, i) => t + (i.valor || 0), 0);
     const proximos = itens
       .filter(i => !i.feito && i.data && i.data >= h && (i.tipo === 'compromisso' || i.tipo === 'tarefa'))
       .sort((a, b) => (a.data + (a.hora || '99:99')).localeCompare(b.data + (b.hora || '99:99')))

@@ -379,6 +379,10 @@ test('compra parcelada vira uma parcela por mês', async ({ page }) => {
   await guardar(page);
 
   await expect(page.locator('.recado')).toContainText('10 parcelas');
+  // Mês da compra: o registro da compra com o valor cheio (não soma no "Saiu").
+  await expect(page.locator('.valor.compra')).toContainText('1.200,00');
+  await expect(page.locator('.numero.saiu')).toHaveText('0,00');
+  await page.click('[data-acao="mes"][data-passo="1"]');
   await expect(page.locator('.item-info').filter({ hasText: 'parcela 1/10' })).toBeVisible();
   await page.click('[data-acao="mes"][data-passo="1"]');
   await expect(page.locator('.item-info').filter({ hasText: 'parcela 2/10' })).toBeVisible();
@@ -390,6 +394,8 @@ test('compra parcelada vira uma parcela por mês', async ({ page }) => {
   await page.click('[data-acao="excluir-grupo"]');
   await page.click('[data-acao="mes"][data-passo="-1"]');
   await expect(page.locator('.item-info').filter({ hasText: 'parcela' })).toHaveCount(0);
+  await page.click('[data-acao="mes"][data-passo="-1"]');
+  await expect(page.locator('.valor.compra')).toHaveCount(0);
 });
 
 test('"sapato de 200 reais em quatro vezes" (como o microfone escreve): R$ 50 nos 4 meses', async ({ page }) => {
@@ -397,9 +403,10 @@ test('"sapato de 200 reais em quatro vezes" (como o microfone escreve): R$ 50 no
   await expect(page.locator('#c_parcelas')).toHaveValue('4');
   await expect(page.locator('#c_dica')).toContainText('4 × R$ 50,00');
   await guardar(page);
+  await expect(page.locator('.valor.compra')).toContainText('200,00');
   for (let k = 1; k <= 4; k++) {
+    await page.click('[data-acao="mes"][data-passo="1"]');
     await expect(page.locator('.item').filter({ hasText: 'parcela ' + k + '/4' })).toContainText('50');
-    if (k < 4) await page.click('[data-acao="mes"][data-passo="1"]');
   }
   await page.click('[data-acao="mes"][data-passo="1"]');
   await expect(page.locator('.item-info').filter({ hasText: 'parcela' })).toHaveCount(0);

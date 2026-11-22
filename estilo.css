@@ -644,3 +644,7 @@ body.confirmando .topo { position: relative; }
 .atualizacao .mini { min-height: 44px; }
 .atualizacao .principal-mini { background: var(--acento); color: #fff; border-color: var(--acento); font-weight: 650; }
 .atualizacao .principal-mini[disabled] { opacity: .7; }
+
+/* registro da compra parcelada: valor cheio só de lembrete, sem somar */
+.valor.compra { color: var(--suave); font-weight: 650; text-align: right; line-height: 1.15; }
+.valor.compra small { display: block; font-size: 11px; font-weight: 600; }

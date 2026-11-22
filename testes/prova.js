@@ -79,13 +79,25 @@ prova('sapato em 4x: R$ 50 em cada um dos 4 meses', () => {
   const r = interpretar('comprei sapato de 200 reais em quatro vezes'); r.data = '2026-11-22';
   const ps = criarParcelas(r);
   return ps.length === 4 && ps.every(p => p.valor === 50) &&
-         ps.map(p => p.data).join() === '2026-11-22,2026-12-22,2027-01-22,2027-02-22';
+         ps.map(p => p.data).join() === '2026-12-22,2027-01-22,2027-02-22,2027-03-22';
+});
+prova('sapato 300 em 3x: no mês da compra aparece 300, mas não soma no "Saiu"; dezembro tem a parcela de 100', () => {
+  const antesSaiu = telaDinheiro().match(/Saiu<\/div><div class="numero saiu">([^<]+)/)[1];
+  const r = interpretar('sapato de 300 reais dividido em 3x');
+  const ps = criarParcelas(r);
+  const agora = telaDinheiro();
+  const depoisSaiu = agora.match(/Saiu<\/div><div class="numero saiu">([^<]+)/)[1];
+  const prox = dataDe(ps[0].data); App.mesRef = { ano: prox.getFullYear(), mes: prox.getMonth() };
+  const dez = telaDinheiro(); App.mesRef = { ano: new Date().getFullYear(), mes: new Date().getMonth() };
+  return agora.includes('valor compra') && agora.includes('300,00') && agora.includes('compra em 3x') &&
+         antesSaiu === depoisSaiu && dez.includes('parcela 1/3') && dez.includes('100,00') && ps[0].valor === 100;
 });
 prova('parcelas viram um lançamento por mês', () => {
   const antes = Dados.itens().length;
   const r = interpretar('geladeira 1.000 em 3x'); r.data = '2026-01-31';
   const ps = criarParcelas(r);
-  return Dados.itens().length === antes + 3 && ps.map(p => p.data).join() === '2026-01-31,2026-02-28,2026-03-31' &&
+  return Dados.itens().length === antes + 4 && ps.map(p => p.data).join() === '2026-02-28,2026-03-31,2026-04-30' &&
+         ps.compra.data === '2026-01-31' && ps.compra.valor === 1000 && ps.compra.compra === 3 && ps.compra.grupo === ps[0].grupo &&
          ps.every(p => p.grupo === ps[0].grupo) && ps[2].parcela === '3/3' &&
          Math.round(ps.reduce((t, p) => t + p.valor, 0) * 100) === 100000 && ps[0].valor === 333.33 && ps[2].valor === 333.34;
 });

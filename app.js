@@ -163,20 +163,31 @@ function pagarFixa(fixaId, ym) {
 
 /* "TV 1.200 em 10x": dez lançamentos, um por mês, ligados pelo mesmo grupo.
    Centavos que sobram da divisão vão para a última parcela. */
+/* Compra parcelada: no mês da compra fica o registro da COMPRA, com o valor
+   cheio (só para lembrar; não soma no "Saiu", senão o dinheiro contaria duas
+   vezes). As parcelas começam no mês seguinte, como na fatura do cartão.
+   Devolve só as parcelas; a compra fica em criados.compra. */
 function criarParcelas(item) {
   const n = item.parcelas, total = item.valor;
   const base = Math.floor(total / n * 100) / 100;
   const grupo = 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
   const inicio = item.data || hojeISO();
+  const compra = Object.assign({}, item, { valor: total, data: inicio, grupo, compra: n });
+  delete compra.parcelas; delete compra.todoDia;
+  const salvaCompra = Dados.adicionar(compra);
   const criados = [];
   for (let k = 0; k < n; k++) {
     const valor = k === n - 1 ? Math.round((total - base * (n - 1)) * 100) / 100 : base;
-    const p = Object.assign({}, item, { valor, data: somarMeses(inicio, k), grupo, parcela: (k + 1) + '/' + n });
+    const p = Object.assign({}, item, { valor, data: somarMeses(inicio, k + 1), grupo, parcela: (k + 1) + '/' + n });
     delete p.parcelas; delete p.todoDia;
     criados.push(Dados.adicionar(p));
   }
+  criados.compra = salvaCompra;
   return criados;
 }
+
+/* Entra nas somas de dinheiro? O registro da compra parcelada não (as parcelas sim). */
+function somaNoTotal(i) { return !i.compra; }
 
 /* A linha de explicação embaixo dos campos, na confirmação. */
 function dicaDinheiro(item) {
@@ -185,8 +196,9 @@ function dicaDinheiro(item) {
   }
   if (item.parcelas >= 2 && item.valor) {
     const inicio = item.data || hojeISO();
-    return '➗ ' + item.parcelas + ' × ' + fmtMoeda(item.valor / item.parcelas) + ', de ' +
-           mesCurtoAno(inicio) + ' a ' + mesCurtoAno(somarMeses(inicio, item.parcelas - 1)) + '.';
+    return '➗ Compra de ' + fmtMoeda(item.valor) + ' em ' + mesCurtoAno(inicio) + '; ' + item.parcelas + ' × ' +
+           fmtMoeda(item.valor / item.parcelas) + ', de ' + mesCurtoAno(somarMeses(inicio, 1)) + ' a ' +
+           mesCurtoAno(somarMeses(inicio, item.parcelas)) + '.';
   }
   return '';
 }
@@ -392,7 +404,8 @@ function salvarRascunho() {
   }
   if (item.tipo === 'gasto' && item.parcelas >= 2) {
     const criados = criarParcelas(item);
-    App.recadoTexto = criados.length + ' parcelas de ' + fmtMoeda(criados[0].valor) + ' lançadas, até ' +
+    App.recadoTexto = 'Compra de ' + fmtMoeda(item.valor) + ' guardada. ' + criados.length + ' parcelas de ' +
+      fmtMoeda(criados[0].valor) + ', de ' + mesCurtoAno(criados[0].data) + ' a ' +
       mesCurtoAno(criados[criados.length - 1].data) + '.';
     return depoisDeGuardar('dinheiro');
   }
@@ -433,13 +446,17 @@ function itemHTML(item, op) {
   if (item.hora) info.push(esc(item.hora));
   if (item.categoria && op.mostrarCategoria !== false) info.push(esc(item.categoria));
   if (item.parcela) info.push('parcela ' + esc(item.parcela));
+  if (item.compra) info.push('🛍️ compra em ' + item.compra + 'x · 1ª parcela em ' + esc(NOMES_MES[+somarMeses(item.data, 1).slice(5, 7) - 1].toLowerCase()));
   if (item.fixaId) info.push('🔁 conta fixa');
   if (atrasado) info.push('<span class="destaque">atrasado</span>');
 
   let valor = '';
   if (item.valor != null) {
     const entrada = item.tipo === 'receita';
-    valor = `<div class="valor ${entrada ? 'entrou' : 'saiu'}">${entrada ? '+' : '−'} ${esc(fmtMoeda(item.valor).replace('R$ ', ''))}</div>`;
+    valor = item.compra
+      // Compra parcelada: valor cheio só de lembrete (quem soma são as parcelas).
+      ? `<div class="valor compra" title="Não soma no mês: quem soma são as parcelas">${esc(fmtMoeda(item.valor).replace('R$ ', ''))}<small>em ${item.compra}x</small></div>`
+      : `<div class="valor ${entrada ? 'entrou' : 'saiu'}">${entrada ? '+' : '−'} ${esc(fmtMoeda(item.valor).replace('R$ ', ''))}</div>`;
   }
 
   if (Avisos.nativo && op.calendario && Avisos.quando(item)) info.push((item.alarme ? '⏰ ' : '🔔 ') + esc(fmtQuandoAviso(Avisos.quando(item))));
@@ -508,7 +525,7 @@ function telaHoje() {
   const deHoje = itens.filter(i => i.data === h && !i.feito && (i.tipo === 'compromisso' || i.tipo === 'tarefa')).sort(ordemAgenda);
   const semPrazo = itens.filter(i => i.tipo === 'tarefa' && !i.data && !i.feito).slice(0, 6);
   const gastosHoje = itens.filter(i => i.tipo === 'gasto' && i.data === h);
-  const somaHoje = gastosHoje.reduce((s, i) => s + (i.valor || 0), 0);
+  const somaHoje = gastosHoje.filter(somaNoTotal).reduce((s, i) => s + (i.valor || 0), 0);
   const agora = new Date();
   const contas = fixasDoMes(agora.getFullYear(), agora.getMonth()).filter(x => !x.pago && x.venc <= h);
 
@@ -562,7 +579,7 @@ function telaDinheiro() {
   const fixas = prefixo >= h.slice(0, 7) ? fixasDoMes(ano, mes) : [];
   const abertas = fixas.filter(x => !x.pago);
 
-  const soma = (lista, tipo) => lista.filter(i => i.tipo === tipo).reduce((t, i) => t + (i.valor || 0), 0);
+  const soma = (lista, tipo) => lista.filter(i => i.tipo === tipo && somaNoTotal(i)).reduce((t, i) => t + (i.valor || 0), 0);
   const somaFixas = tipo => abertas.filter(x => x.fixa.tipo === tipo).reduce((t, x) => t + (x.fixa.valor || 0), 0);
   const saiu = soma(feitos, 'gasto'), entrou = soma(feitos, 'receita');
   const vaiSair = soma(previstos, 'gasto') + somaFixas('gasto');
@@ -600,7 +617,7 @@ function telaDinheiro() {
   }
 
   const porCategoria = {};
-  feitos.filter(i => i.tipo === 'gasto').forEach(i => {
+  feitos.filter(i => i.tipo === 'gasto' && somaNoTotal(i)).forEach(i => {
     const c = i.categoria || 'Outros';
     porCategoria[c] = (porCategoria[c] || 0) + (i.valor || 0);
   });
@@ -708,8 +725,9 @@ function painelEditar(id) {
     <div class="confirma-tipos">${chips}</div>
     ${camposHTML(item, 'e_')}
     ${item.parcela ? `<p>Parcela ${esc(item.parcela)}. Mudar aqui muda só esta parcela.</p>` : ''}
-    ${item.grupo ? `<button class="opcao perigo" data-acao="excluir-grupo" data-id="${id}"><span class="op-icone">🗑️</span><div><div>Excluir todas as parcelas</div>
-      <div class="desc">Apaga as ${Dados.itens().filter(i => i.grupo === item.grupo).length} parcelas desta compra.</div></div></button>` : ''}
+    ${item.compra ? `<p>Registro da compra em ${item.compra}x. Ele não soma no mês: quem soma são as parcelas, a partir do mês seguinte.</p>` : ''}
+    ${item.grupo ? `<button class="opcao perigo" data-acao="excluir-grupo" data-id="${id}"><span class="op-icone">🗑️</span><div><div>Excluir a compra e todas as parcelas</div>
+      <div class="desc">Apaga a compra e as ${Dados.itens().filter(i => i.grupo === item.grupo && i.parcela).length} parcelas.</div></div></button>` : ''}
     <div class="acoes">
       <button type="button" data-acao="excluir" data-id="${id}">${item.grupo ? 'Excluir esta' : 'Excluir'}</button>
       <button type="button" class="principal" data-acao="salvar-edicao" data-id="${id}">Salvar</button>
@@ -1017,7 +1035,7 @@ document.addEventListener('click', evento => {
   if (acao === 'excluir-grupo') {
     const item = Dados.itens().find(i => i.id === id);
     const doGrupo = Dados.itens().filter(i => i.grupo === item.grupo);
-    if (!confirm('Apagar as ' + doGrupo.length + ' parcelas desta compra?')) return;
+    if (!confirm('Apagar a compra e as ' + doGrupo.filter(i => i.parcela).length + ' parcelas?')) return;
     doGrupo.forEach(i => Dados.remover(i.id)); fecharPainel(); return render();
   }
 

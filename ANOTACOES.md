@@ -279,3 +279,11 @@ O site (iPhone) continua igual, com o "Pôr no calendário".
   algarismo. Agora aceita: por extenso (PARCELAS_FALADAS), "dividido/parcelado/parcelei/dividi",
   "no cartão em", "parcelas/prestações", "parcelei o sapato de 200 em 4" (verbo antes, "em N" depois).
 - limparTitulo ignora pedaço só de pontuação ("Sapato de ," virava título).
+
+## 22/11/2026 — compra parcelada: valor cheio no mês da compra, parcelas a partir do seguinte (v1.5)
+- Pedido dele: "sapato 300 em 3x" → novembro mostra a compra de 300; dezembro a 1ª parcela de 100.
+- criarParcelas cria um item `compra: n` (valor cheio, data da compra, mesmo grupo) que NÃO
+  entra em soma nenhuma (somaNoTotal: Saiu, Ainda vai sair, Onde foi o dinheiro, gasto de hoje,
+  widget) — senão o dinheiro contaria duas vezes. Parcelas: somarMeses(inicio, k + 1).
+- Visual: valor cinza "300,00 em 3x" + "🛍️ compra em 3x · 1ª parcela em dezembro".
+- Excluir pelo Editar apaga a compra e as parcelas. Compras antigas (antes da 1.5) ficam como estavam.
