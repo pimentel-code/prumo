@@ -59,6 +59,7 @@ fi
 cp -f Prumo.apk ~/Downloads/Prumo.apk 2>/dev/null || true
 
 nota="${1:-Versão $versao do Prumo}"
+python3 canais.py teste "$novo" "$nativo" "$nota"
 git add -A
 git commit -qm "Prumo $versao: $nota" || true
 git push -q

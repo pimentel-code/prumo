@@ -22,6 +22,10 @@ const rel = (tag, nativo, extra) => Object.assign({ tag_name: tag, draft: false,
            { name: 'miolo.zip', browser_download_url: 'https://x/' + tag + '/miolo.zip' }] }, extra || {});
 let lista = [];
 globalThis.fetch = async url => {
+  if (/canais\.json/.test(url)) {
+    const c = globalThis.canaisSim;
+    return c ? { ok: true, status: 200, async json() { return c; } } : { ok: false, status: 404, async json() { return {}; } };
+  }
   if (/releases\?/.test(url)) return { ok: true, status: 200, async json() { return lista; } };
   return { ok: true, status: 200, async json() { return lista.find(r => !r.prerelease) || {}; } };
 };
@@ -40,8 +44,8 @@ const limpar = () => { peca.baixados = []; peca.proximo = null; peca.pacotes = [
 
   limpar();
   lista = [rel('v1.11', 11), rel('v1.10', 9)];
-  await prova('versão que mexe na parte nativa não vem pelo miolo: fica a mais nova que serve', async () =>
-    (await Miolo.conferir(true)) === '1.10');
+  await prova('versão que mexe na parte nativa não vem pelo miolo (precisa do APK)', async () =>
+    (await Miolo.conferir(true)) === null && peca.baixados.length === 0);
   await prova('…e essa sim mostra a faixa "Versão nova" para instalar o APK', async () => {
     const n = await Atualizacao.conferir(true); return !!n && n.versao === '1.11'; });
 
@@ -83,6 +87,25 @@ const limpar = () => { peca.baixados = []; peca.proximo = null; peca.pacotes = [
   await Miolo.conferir(true);
   peca.baixados = [];
   await prova('o nome da versão vai no formato 1.N', () => peca.baixados.length === 0 || /^1\.\d+$/.test(peca.baixados[0].version));
+  // canais.json (sem o limite de 60/h da API): é o caminho principal desde a 1.16
+  limpar(); Miolo.versao = 9;
+  const canal = (n, nat) => ({ codigo: n, nativo: nat, apk: 'https://x/c' + n + '/Prumo.apk', miolo: 'https://x/c' + n + '/miolo.zip', notas: '' });
+  globalThis.canaisSim = { estavel: canal(13, 9), teste: canal(15, 9) };
+  let usouApi = false; const f0 = globalThis.fetch;
+  globalThis.fetch = async u => { if (/api\.github/.test(u)) usouApi = true; return f0(u); };
+  Miolo.ligarTeste(false);
+  await prova('canais.json: o estável chega sem usar a API do GitHub', async () =>
+    (await Miolo.conferir(true)) === '1.13' && peca.baixados[0].url === 'https://x/c13/miolo.zip' && !usouApi);
+  limpar(); Miolo.ligarTeste(true);
+  await prova('canais.json: quem testa recebe o de teste', async () => (await Miolo.conferir(true)) === '1.15');
+  Miolo.ligarTeste(false);
+  globalThis.canaisSim = { estavel: canal(16, 16), teste: canal(16, 16) };
+  globalThis.versaoInstalada = 9;
+  await prova('canais.json: parte nativa nova mostra a faixa "Versão nova"', async () => {
+    const n = await Atualizacao.conferir(true); return !!n && n.versao === '1.16' && n.url === 'https://x/c16/Prumo.apk'; });
+  globalThis.fetch = f0; globalThis.canaisSim = null;
+  limpar();
+  localStorage.setItem(Miolo.CHAVE_VISTO, String(Date.now()));
   await prova('não pergunta ao GitHub de novo antes de 30 minutos', async () =>
     (await Miolo.conferir(false)) === null && peca.baixados.length === 0);
 

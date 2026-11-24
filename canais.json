@@ -1,0 +1,17 @@
+{
+  "_leia": "Versões do Prumo lidas pelo app (sem usar a API do GitHub, que tem limite de 60/h). Gerado pelo publicar-apk.sh (teste) e aprovar-apk.sh (estavel).",
+  "estavel": {
+    "codigo": 13,
+    "nativo": 12,
+    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.13/Prumo.apk",
+    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.13/miolo.zip",
+    "notas": "Esfera fixa na tela Hoje."
+  },
+  "teste": {
+    "codigo": 16,
+    "nativo": 14,
+    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.16/Prumo.apk",
+    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.16/miolo.zip",
+    "notas": "Atualização não depende mais da consulta do GitHub que tem limite de 60 por hora (o erro 403): o app lê um arquivo de versões sem limite."
+  }
+}

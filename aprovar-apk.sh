@@ -23,6 +23,11 @@ versao="${tag#v}"
 
 gh release edit "$tag" --prerelease=false --latest --title "Prumo $versao"
 git fetch -q --tags origin
+# O app lê o canais.json (sem a API do GitHub, que tem limite de 60/h): marca o estável.
+corpo=$(gh release view "$tag" --json body --jq .body)
+nat=$(printf '%s' "$corpo" | grep -oP '\[nativo:\K\d+' || echo "${versao#1.}")
+python3 canais.py estavel "${versao#1.}" "$nat" "$corpo"
+git add canais.json && git commit -qm "canais: $versao estável" && git push -q || true
 # O site (GitHub Pages) sai do ramo "estavel": aponta para o código desta versão.
 git push -q -f origin "$tag^{commit}:refs/heads/estavel"
 

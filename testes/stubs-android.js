@@ -33,7 +33,12 @@ window.Capacitor = {
 /* GitHub de mentira: a "última versão liberada" é globalThis.ultimaRelease */
 globalThis.fetch = async url => {
   globalThis.perguntouGithub = (globalThis.perguntouGithub || 0) + 1;
+  if (/canais\.json/.test(url)) {   // canais.json: só quando a prova monta um
+    const c = globalThis.canaisSim;
+    return c ? { ok: true, status: 200, async json() { return c; } } : { ok: false, status: 404, async json() { return {}; } };
+  }
   const r = globalThis.ultimaRelease;
+  if (r && /releases\?/.test(url)) return { ok: true, status: 200, async json() { return [r]; } };
   if (!r) return { ok: false, status: 404, async json() { return {}; } };
   return { ok: true, status: 200, async json() { return r; } };
 };

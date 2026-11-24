@@ -33,25 +33,18 @@ const Atualizacao = {
 
     let salvo = {};
     try { salvo = JSON.parse(localStorage.getItem(this.CHAVE)) || {}; } catch (e) {}
-    let rel = salvo.rel || null;
+    let est = salvo.est || null;
     if (forcar || !salvo.em || Date.now() - salvo.em > this.INTERVALO) {
-      try {
-        const r = await fetch(this.API, { headers: { Accept: 'application/vnd.github+json' } });
-        if (r.ok || r.status === 404) {
-          const j = r.ok ? await r.json() : {};
-          const apk = (j.assets || []).find(a => /\.apk$/i.test(a.name));
-          rel = apk ? { tag: j.tag_name, url: apk.browser_download_url, body: String(j.body || ''),
-                        notas: String(j.body || '').replace(/\[nativo:\d+\]/g, '').trim().slice(0, 400) } : null;
-          localStorage.setItem(this.CHAVE, JSON.stringify({ em: Date.now(), rel }));
-        }
-      } catch (e) { /* sem internet: fica com o que sabia */ }
+      // Lê o canais.json (sem o limite de 60/h da API); reserva: a API. Ver miolo.js.
+      const c = await Miolo.lerCanais();
+      if (c && c.estavel) {
+        est = c.estavel;
+        try { localStorage.setItem(this.CHAVE, JSON.stringify({ em: Date.now(), est })); } catch (e) {}
+      }
     }
-    const codigo = rel ? this.codigoDe(rel.tag) : 0;
     // Só pede o APK se a parte nativa exigida for mais nova que a instalada.
-    const m = rel && /\[nativo:(\d+)\]/.exec(rel.body || '');
-    const nativo = m ? +m[1] : codigo;
-    this.nova = (this.instalado && nativo > this.instalado)
-      ? { versao: '1.' + codigo, codigo, url: rel.url, notas: rel.notas }
+    this.nova = (est && est.apk && this.instalado && est.nativo > this.instalado)
+      ? { versao: '1.' + est.codigo, codigo: est.codigo, url: est.apk, notas: est.notas || '' }
       : null;
     return this.nova;
   },

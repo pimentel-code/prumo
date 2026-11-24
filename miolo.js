@@ -15,7 +15,11 @@
    (estatísticas desligadas no capacitor.config.json). */
 
 const Miolo = {
-  API: 'https://api.github.com/repos/pimentel-code/prumo/releases?per_page=15',
+  // Desde a 1.16: arquivo fixo no GitHub (raw), SEM o limite de 60 consultas/hora
+  // da API — o limite estourado (erro 403) era o que travava a atualização.
+  CANAIS: 'https://raw.githubusercontent.com/pimentel-code/prumo/main/canais.json',
+  API: 'https://api.github.com/repos/pimentel-code/prumo/releases?per_page=15',   // reserva
+  canais: null,
   CHAVE_TESTE: 'prumo.miolo.teste',     // "sim": recebe também as versões de teste
   CHAVE_VISTO: 'prumo.miolo.conferido',
   INTERVALO: 30 * 60 * 1000,            // pergunta ao GitHub no máximo a cada 30 min
@@ -60,6 +64,32 @@ const Miolo = {
     return m ? +m[1] : this.codigoDe(rel.tag_name);
   },
 
+  /* Lê { estavel, teste } do canais.json. Cada um: { codigo, nativo, apk, miolo, notas }.
+     Se o arquivo falhar, monta o mesmo a partir da API (que tem limite). */
+  async lerCanais() {
+    try {
+      const r = await fetch(this.CANAIS + '?t=' + Date.now(), { cache: 'no-store' });
+      if (r.ok) { const c = await r.json(); if (c && c.estavel) { this.canais = c; return c; } }
+      this.anotar('canais.json respondeu ' + r.status + '; tentando a API do GitHub');
+    } catch (e) { this.anotar('Sem conseguir ler o canais.json: ' + this.erroDe(e)); }
+    try {
+      const r = await fetch(this.API, { headers: { Accept: 'application/vnd.github+json' } });
+      if (!r.ok) { this.anotar('GitHub respondeu ' + r.status + (r.status === 403 ? ' (limite de consultas da hora estourou)' : '')); return null; }
+      const lista = await r.json();
+      const virar = j => {
+        const z = (j.assets || []).find(a => a.name === 'miolo.zip');
+        const k = (j.assets || []).find(a => /\.apk$/i.test(a.name));
+        return { codigo: this.codigoDe(j.tag_name), nativo: this.nativoDe(j), miolo: z && z.browser_download_url,
+                 apk: k && k.browser_download_url, notas: String(j.body || '').replace(/\[nativo:\d+\]/g, '').trim().slice(0, 400) };
+      };
+      const ok = (lista || []).filter(j => !j.draft);
+      const est = ok.filter(j => !j.prerelease).map(virar).sort((a, b) => b.codigo - a.codigo)[0];
+      const tes = ok.map(virar).sort((a, b) => b.codigo - a.codigo)[0];
+      this.canais = est ? { estavel: est, teste: tes } : null;
+      return this.canais;
+    } catch (e) { this.anotar('Sem conseguir falar com o GitHub: ' + this.erroDe(e)); return null; }
+  },
+
   /* Chamado logo que o app abre: avisa que este miolo abriu bem (senão a peça
      volta ao anterior em 10 s) e, alguns segundos depois, procura versão nova. */
   async iniciar() {
@@ -83,24 +113,18 @@ const Miolo = {
     try { visto = +localStorage.getItem(this.CHAVE_VISTO) || 0; } catch (e) {}
     if (!forcar && Date.now() - visto < this.INTERVALO) return null;
 
-    let lista;
-    try {
-      const r = await fetch(this.API, { headers: { Accept: 'application/vnd.github+json' } });
-      if (!r.ok) { this.anotar('GitHub respondeu ' + r.status + ' ao perguntar as versões'); return null; }
-      lista = await r.json();
-      localStorage.setItem(this.CHAVE_VISTO, String(Date.now()));
-    } catch (e) { this.anotar('Sem conseguir falar com o GitHub: ' + this.erroDe(e)); return null; }
+    const c = await this.lerCanais();
+    if (!c) return null;
+    try { localStorage.setItem(this.CHAVE_VISTO, String(Date.now())); } catch (e) {}
 
     const teste = this.recebeTeste();
     let nativo = 0;
     try { nativo = +(await window.Capacitor.Plugins.App.getInfo()).build || 0; } catch (e) {}
 
-    // A mais nova que serve: liberada (ou de teste, se ligado), com miolo.zip,
+    // A mais nova que serve: a estável (ou a de teste, se ligado), com miolo,
     // e cuja parte nativa exigida este celular já tem.
-    const rel = (lista || [])
-      .filter(j => !j.draft && (teste || !j.prerelease))
-      .map(j => ({ j, codigo: this.codigoDe(j.tag_name), zip: (j.assets || []).find(a => a.name === 'miolo.zip') }))
-      .filter(x => x.zip && x.codigo > this.versao && this.nativoDe(x.j) <= nativo)
+    const rel = [c.estavel, teste ? c.teste : null]
+      .filter(x => x && x.miolo && x.codigo > this.versao && x.nativo <= nativo)
       .sort((a, b) => b.codigo - a.codigo)[0];
     if (!rel) { this.anotar('Nada mais novo que a 1.' + this.versao + ' para este celular (parte nativa ' + nativo + ', teste ' + (teste ? 'ligado' : 'desligado') + ')'); return null; }
 
@@ -119,7 +143,7 @@ const Miolo = {
       } catch (e) {}
       if (!pacote) {
         this.anotar('Baixando a ' + nome + '…');
-        pacote = await P.download({ version: nome, url: rel.zip.browser_download_url });
+        pacote = await P.download({ version: nome, url: rel.miolo });
         this.anotar('Baixou a ' + nome + ' (' + (pacote && pacote.status) + ')');
       }
       await P.next({ id: pacote.id });   // troca quando o app for para o fundo
