@@ -3,12 +3,12 @@
   "appName": "Prumo",
   "webDir": "www",
   "android": {
-    "backgroundColor": "#0f766e"
+    "backgroundColor": "#111114"
   },
   "plugins": {
     "LocalNotifications": {
       "smallIcon": "ic_stat_prumo",
-      "iconColor": "#0f766e"
+      "iconColor": "#ec4899"
     }
   }
 }

@@ -825,6 +825,11 @@ function painelAjustes() {
 
     ${Avisos.nativo ? avisosAjustesHTML() : ''}
 
+    <h3>Ao abrir</h3>
+    <button class="opcao" data-acao="esfera-ao-abrir"><span class="op-icone">🔮</span><div>
+      <div>Esfera ao abrir: <strong>${Esfera.ligada() ? 'ligada' : 'desligada'}</strong></div>
+      <div class="desc">${Esfera.ligada() ? 'O Prumo abre pela esfera, esperando você dizer o que precisa. Toque para desligar.' : 'O Prumo abre direto nas listas. Toque para ligar a esfera.'}</div></div></button>
+
     <h3>Palavras aprendidas</h3>
     ${aprendidas.length
       ? '<div class="lista">' + aprendidas.map(([p, c]) =>
@@ -1116,6 +1121,7 @@ document.addEventListener('click', evento => {
       render(); if (document.querySelector('#painel h2')) painelAjustes();
     });
   }
+  if (acao === 'esfera-ao-abrir') { Esfera.ligar(!Esfera.ligada()); return painelAjustes(); }
   if (acao === 'esquecer') { Dados.esquecer(alvo.dataset.palavra); return painelAjustes(); }
   if (acao === 'instalar') return painelInstalar();
   if (acao === 'apagar') {
@@ -1179,6 +1185,23 @@ function iniciar() {
 
   render();
   if (Tutorial.precisa()) Tutorial.abrir();
+  else if (Esfera.ligada()) Esfera.abrir();
+
+  // Voltou ao Prumo depois de 10 minutos fora? A esfera recebe de novo.
+  let saiuEm = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { saiuEm = Date.now(); return; }
+    if (saiuEm && Date.now() - saiuEm > 10 * 60 * 1000 && Esfera.ligada() && !Tutorial.aberto
+        && !App.rascunho && !document.getElementById('painel').innerHTML) Esfera.abrir();
+    saiuEm = 0;
+  });
+
+  // Site: o 🎤 aparece se o navegador reconhece voz (no app Android, logo abaixo).
+  if (!Avisos.nativo && Esfera.temVoz()) {
+    const bt = document.getElementById('btVoz');
+    bt.hidden = false;
+    bt.addEventListener('click', () => Esfera.abrir({ ouvir: true }));
+  }
 
   if (Dados.itens().length && Dados.diasSemBackup() >= 21) {
     setTimeout(() => {
@@ -1199,6 +1222,7 @@ function iniciar() {
     const btVoz = document.getElementById('btVoz');
     btVoz.hidden = false;
     btVoz.addEventListener('click', async () => {
+      if (typeof Esfera !== 'undefined') return Esfera.abrir({ ouvir: true });
       try {
         const texto = await Avisos.ouvir();
         if (!texto) return;
@@ -1219,6 +1243,7 @@ function iniciar() {
       fecharPainel(); App.busca = null;
       if (pedido === 'falar') btVoz.click();
       else if (pedido === 'anotar') {
+        Esfera.fechar();
         const campo = document.getElementById('campoEntrada');
         campo.focus();
         Avisos.nativoPrumo().mostrarTeclado().catch(() => {});
@@ -1237,6 +1262,7 @@ function iniciar() {
     const AppNativo = window.Capacitor.Plugins.App;
     if (AppNativo) AppNativo.addListener('backButton', () => {
       if (Tutorial.aberto) return Tutorial.voltar();
+      if (Esfera.aberta) return Esfera.fechar();
       if (document.getElementById('painel').innerHTML) { fecharPainel(); return render(); }
       if (App.rascunho) { App.rascunho = null; return renderConfirma(); }
       if (App.busca !== null) { document.getElementById('btBusca').click(); return; }

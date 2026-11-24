@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Cores do widget e dos atalhos: visual "esfera" (escuro com degradê), igual no claro e no escuro. -->
 <resources>
-    <color name="widget_fundo">#F2161E21</color>
-    <color name="widget_texto">#E8EEEC</color>
-    <color name="widget_suave">#93A19C</color>
-    <color name="widget_acento">#5FD6C5</color>
-    <color name="widget_botao">#138A7E</color>
-    <color name="widget_botao_claro">#153430</color>
+    <color name="widget_fundo">#F218181B</color>
+    <color name="widget_texto">#F1F0F5</color>
+    <color name="widget_suave">#9B99A8</color>
+    <color name="widget_acento">#F0629F</color>
+    <color name="widget_botao">#EC4899</color>
+    <color name="widget_botao_claro">#2E2E35</color>
 </resources>

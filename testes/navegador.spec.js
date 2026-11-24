@@ -8,7 +8,7 @@ const { test, expect } = require('@playwright/test');
    já visto, para ele não ficar na frente das outras provas. */
 async function abrirLimpo(page) {
   await page.goto('index.html');
-  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('prumo.tutorial.visto', '1'); });
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('prumo.tutorial.visto', '1'); localStorage.setItem('prumo.esfera.aoAbrir', 'nao'); });
   await page.reload();
   await expect(page.locator('#campoEntrada')).toBeVisible();
 }
@@ -482,4 +482,65 @@ test('revisão do que ficou para trás: uma de cada vez', async ({ page }) => {
   await page.click('.aba[data-aba="tarefas"]');
   await expect(page.locator('.item-titulo').filter({ hasText: 'Pagar boleto' })).toBeVisible();
   await expect(page.locator('.item-titulo').filter({ hasText: 'Mandar e-mail' })).toHaveCount(0);
+});
+
+/* ---------- esfera ao abrir (23/11/2026) ---------- */
+
+async function abrirComEsfera(page) {
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('prumo.tutorial.visto', '1'); });
+  await page.reload();
+  await expect(page.locator('#esfera')).toBeVisible();
+}
+
+test('a esfera recebe ao abrir e o ✕ leva às listas', async ({ page }) => {
+  await abrirComEsfera(page);
+  await expect(page.locator('#esferaTexto')).toContainText('diga o que precisa');
+  await page.click('[data-esfera="fechar"]');
+  await expect(page.locator('#esfera')).toHaveCount(0);
+  await expect(page.locator('#campoEntrada')).toBeVisible();
+});
+
+test('escrever na esfera mostra o que entendeu e Guardar anota', async ({ page }) => {
+  await abrirComEsfera(page);
+  await page.fill('#esferaCampo', 'almoço 45 reais');
+  await page.press('#esferaCampo', 'Enter');
+  await expect(page.locator('#esferaTexto')).toContainText('Saiu');
+  await expect(page.locator('#esferaTexto')).toContainText('45');
+  await page.click('[data-esfera="guardar"]');
+  await expect(page.locator('#esfera')).toHaveCount(0);
+  await expect(page.locator('.confirma')).toHaveCount(0);
+  await page.click('.aba[data-aba="dinheiro"]');
+  await expect(page.locator('#conteudo')).toContainText('Almoço');
+});
+
+test('Corrigir na esfera abre a confirmação completa', async ({ page }) => {
+  await abrirComEsfera(page);
+  await page.fill('#esferaCampo', 'dentista quinta 15h');
+  await page.press('#esferaCampo', 'Enter');
+  await page.click('[data-esfera="corrigir"]');
+  await expect(page.locator('#esfera')).toHaveCount(0);
+  await expect(page.locator('.confirma')).toBeVisible();
+});
+
+test('a esfera desliga nos Ajustes e não volta ao abrir', async ({ page }) => {
+  await abrirComEsfera(page);
+  await page.click('[data-esfera="fechar"]');
+  await page.click('#btAjustes');
+  await page.click('[data-acao="esfera-ao-abrir"]');
+  await expect(page.locator('[data-acao="esfera-ao-abrir"]')).toContainText('desligada');
+  await page.reload();
+  await expect(page.locator('#campoEntrada')).toBeVisible();
+  await expect(page.locator('#esfera')).toHaveCount(0);
+});
+
+test('a esfera desenha as partículas (o quadro não fica vazio)', async ({ page }) => {
+  await abrirComEsfera(page);
+  await page.waitForTimeout(400);
+  const acesos = await page.evaluate(() => {
+    const c = document.querySelector('.esfera-tela');
+    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+    let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 20) n++;
+    return n;
+  });
+  expect(acesos).toBeGreaterThan(500);
 });

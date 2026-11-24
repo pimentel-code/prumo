@@ -1,13 +1,17 @@
 package io.github.pimentelcode.prumo;
 
+import android.Manifest;
 import android.app.Activity;
 import android.app.NotificationManager;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Bundle;
 import android.provider.Settings;
+import android.speech.RecognitionListener;
 import android.speech.RecognizerIntent;
+import android.speech.SpeechRecognizer;
 import android.view.inputmethod.InputMethodManager;
 import android.webkit.WebView;
 import androidx.activity.result.ActivityResult;
@@ -24,13 +28,18 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.ActivityCallback;
+import com.getcapacitor.PermissionState;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.getcapacitor.annotation.Permission;
+import com.getcapacitor.annotation.PermissionCallback;
 import java.util.ArrayList;
 import org.json.JSONArray;
 import org.json.JSONException;
 
 /** Ponte entre o app (JavaScript) e as partes nativas do Prumo: alarme, voz e widget. */
-@CapacitorPlugin(name = "Prumo")
+@CapacitorPlugin(name = "Prumo", permissions = {
+    @Permission(alias = "microfone", strings = { Manifest.permission.RECORD_AUDIO })
+})
 public class PrumoPlugin extends Plugin {
 
     /** Pedido vindo do widget ou de um atalho do ícone: "falar" ou "anotar". */
@@ -209,5 +218,110 @@ public class PrumoPlugin extends Plugin {
         }
         r.put("texto", texto);
         call.resolve(r);
+    }
+
+    /* ---------- Escuta direta (esfera): microfone sem a janelinha do Google ---------- */
+
+    private SpeechRecognizer reconhecedor;
+
+    /** Ouve pelo microfone, avisando o volume ("vozVolume") e o texto parcial ("vozParcial"). */
+    @PluginMethod
+    public void escutar(PluginCall call) {
+        if (getPermissionState("microfone") != PermissionState.GRANTED) {
+            requestPermissionForAlias("microfone", call, "aoPermitirMicrofone");
+            return;
+        }
+        comecarEscuta(call);
+    }
+
+    @PermissionCallback
+    private void aoPermitirMicrofone(PluginCall call) {
+        if (getPermissionState("microfone") == PermissionState.GRANTED) comecarEscuta(call);
+        else call.reject("Sem permissão do microfone.", "SEM_PERMISSAO");
+    }
+
+    private void comecarEscuta(final PluginCall call) {
+        getActivity().runOnUiThread(() -> {
+            if (!SpeechRecognizer.isRecognitionAvailable(getContext())) {
+                call.reject("Reconhecimento de voz indisponível.", "SEM_VOZ");
+                return;
+            }
+            destruirReconhecedor();
+            reconhecedor = SpeechRecognizer.createSpeechRecognizer(getContext());
+            final boolean[] respondido = { false };
+            reconhecedor.setRecognitionListener(new RecognitionListener() {
+                @Override public void onReadyForSpeech(Bundle b) {}
+                @Override public void onBeginningOfSpeech() {}
+                @Override public void onBufferReceived(byte[] b) {}
+                @Override public void onEndOfSpeech() {}
+                @Override public void onEvent(int tipo, Bundle b) {}
+
+                @Override public void onRmsChanged(float rms) {
+                    JSObject d = new JSObject();
+                    d.put("rms", rms);
+                    notifyListeners("vozVolume", d);
+                }
+
+                @Override public void onPartialResults(Bundle b) {
+                    ArrayList<String> t = b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                    if (t == null || t.isEmpty()) return;
+                    JSObject d = new JSObject();
+                    d.put("texto", t.get(0));
+                    notifyListeners("vozParcial", d);
+                }
+
+                @Override public void onResults(Bundle b) {
+                    if (respondido[0]) return;
+                    respondido[0] = true;
+                    ArrayList<String> t = b.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION);
+                    JSObject r = new JSObject();
+                    r.put("texto", (t != null && !t.isEmpty()) ? t.get(0) : "");
+                    call.resolve(r);
+                    destruirReconhecedor();
+                }
+
+                @Override public void onError(int erro) {
+                    if (respondido[0]) return;
+                    respondido[0] = true;
+                    if (erro == SpeechRecognizer.ERROR_NO_MATCH || erro == SpeechRecognizer.ERROR_SPEECH_TIMEOUT
+                            || erro == SpeechRecognizer.ERROR_CLIENT) {
+                        JSObject r = new JSObject();
+                        r.put("texto", "");
+                        call.resolve(r);
+                    } else if (erro == SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS) {
+                        call.reject("Sem permissão do microfone.", "SEM_PERMISSAO");
+                    } else {
+                        call.reject("Não consegui ouvir (erro " + erro + ").", "ERRO_VOZ");
+                    }
+                    destruirReconhecedor();
+                }
+            });
+            Intent i = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH)
+                .putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                .putExtra(RecognizerIntent.EXTRA_LANGUAGE, "pt-BR")
+                .putExtra(RecognizerIntent.EXTRA_LANGUAGE_PREFERENCE, "pt-BR")
+                .putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                .putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1);
+            reconhecedor.startListening(i);
+        });
+    }
+
+    /** Toque no microfone de novo: para de ouvir e entrega o que já ouviu. */
+    @PluginMethod
+    public void pararEscuta(PluginCall call) {
+        getActivity().runOnUiThread(() -> { if (reconhecedor != null) reconhecedor.stopListening(); });
+        call.resolve();
+    }
+
+    private void destruirReconhecedor() {
+        if (reconhecedor != null) {
+            try { reconhecedor.destroy(); } catch (Exception e) {}
+            reconhecedor = null;
+        }
+    }
+
+    @Override
+    protected void handleOnDestroy() {
+        destruirReconhecedor();
     }
 }

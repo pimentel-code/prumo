@@ -22,12 +22,12 @@ rodar_js "$T/t1.js"
 
 echo
 echo "── app inteiro: 14 provas com navegador simulado ──"
-cat testes/stubs.js interpretador.js dados.js calendario.js avisos.js tutorial.js atualizacao.js app.js testes/prova.js > "$T/t2.js"
+cat testes/stubs.js interpretador.js dados.js calendario.js avisos.js tutorial.js atualizacao.js esfera.js app.js testes/prova.js > "$T/t2.js"
 rodar_js "$T/t2.js"
 
 echo
 echo "── avisos do app Android: provas com o Android simulado ──"
-cat testes/stubs.js testes/stubs-android.js interpretador.js dados.js calendario.js avisos.js tutorial.js atualizacao.js app.js testes/avisos-prova.js > "$T/t3.js"
+cat testes/stubs.js testes/stubs-android.js interpretador.js dados.js calendario.js avisos.js tutorial.js atualizacao.js esfera.js app.js testes/avisos-prova.js > "$T/t3.js"
 rodar_js "$T/t3.js"
 
 if [ "${1:-}" = "rapido" ]; then

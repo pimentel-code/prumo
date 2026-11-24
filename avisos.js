@@ -328,6 +328,37 @@ const Avisos = {
     return (r && r.texto || '').trim();
   },
 
+  /* Escuta direto pelo microfone (sem a janelinha do Google), avisando o volume
+     e o que já entendeu enquanto você fala — é o que faz a esfera pulsar.
+     Se este celular não deixar, cai na janelinha de sempre (ouvir). */
+  async escutar(aoVolume, aoParcial) {
+    if (!this.nativo) return '';
+    const p = this.nativoPrumo();
+    const ouvintes = [];
+    try {
+      if (p.addListener) {
+        ouvintes.push(await p.addListener('vozVolume', d => {
+          // O Android dá o volume em dB, mais ou menos de -2 (silêncio) a 10 (falando alto).
+          const n = Math.max(0, Math.min(1, ((d && d.rms) + 2) / 12));
+          if (aoVolume) aoVolume(n);
+        }));
+        ouvintes.push(await p.addListener('vozParcial', d => { if (aoParcial && d && d.texto) aoParcial(d.texto); }));
+      }
+      const r = await p.escutar();
+      return (r && r.texto || '').trim();
+    } catch (e) {
+      if (e && e.code === 'SEM_PERMISSAO') throw new Error('O Prumo precisa da permissão do microfone.');
+      return this.ouvir();
+    } finally {
+      ouvintes.forEach(o => { try { o.remove(); } catch (e) {} });
+    }
+  },
+
+  pararEscuta() {
+    if (!this.nativo) return;
+    try { this.nativoPrumo().pararEscuta(); } catch (e) {}
+  },
+
   async testarAlarme() {
     await this.nativoPrumo().testarAlarme({ segundos: 10 });
     alert('Pronto. O alarme de teste toca em 10 segundos.\n\nPode bloquear a tela ou sair do Prumo e mexer em outro app: a tela do alarme aparece por cima. Para parar, toque em "Parar".');
