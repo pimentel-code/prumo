@@ -33,8 +33,10 @@ git push -q -f origin "$tag^{commit}:refs/heads/estavel"
 
 echo
 echo "Liberado para todos: Prumo $versao."
-if gh release view "$tag" --json body --jq .body | grep -q "\[nativo:${versao#1.}\]"; then
-  echo "  · tem parte NATIVA nova: o Prumo dos amigos mostra \"Versão nova\" para instalar (confere a cada 6 h)"
+# Compara com a ESTÁVEL ANTERIOR (o que os amigos têm), não só com a versão de teste anterior.
+anterior=$(gh release list -L 40 --json tagName,isPrerelease --jq '.[]|select(.isPrerelease==false)|.tagName' | grep -vx "$tag" | sort -V | tail -1)
+if [ -n "$anterior" ] && [ "$nat" -gt "${anterior#v1.}" ]; then
+  echo "  · exige parte NATIVA mais nova que a ${anterior#v} dos amigos: eles veem \"Versão nova\" e instalam o APK UMA vez (confere a cada 30 min)"
 else
   echo "  · só o miolo: o Prumo dos amigos se atualiza sozinho, sem aviso (ao abrir e sair do app)"
 fi
