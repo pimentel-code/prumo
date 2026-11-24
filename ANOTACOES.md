@@ -304,3 +304,19 @@ O site (iPhone) continua igual, com o "Pôr no calendário".
 - Backup do anterior em backups/antes-esfera-2026-11-23/.
 - A prova "revisão do que ficou para trás" falha à noite (data em UTC no teste) — já falhava antes.
 - 1.8 (TESTE, 23/11): ícone, ícone adaptativo (drawable/fundo_icone.xml) e splash refeitos no degradê pelo gerar-icones.py; splash agora escura com brilho e o ícone no meio. Backup dos antigos em backups/antes-esfera-2026-11-23/ (icones/ e res/).
+
+## 23/11/2026 — miolo silencioso (v1.9, TESTE)
+- Pedido dele: atualizar sem ninguém ver, no celular dele e no dos amigos.
+- @capgo/capacitor-updater 8.54.2 em modo MANUAL, sem a nuvem da Capgo (statsUrl/updateUrl/channelUrl
+  vazios no capacitor.config.json). miolo.js: notifyAppReady ao abrir (senão volta ao anterior em 10 s);
+  4 s depois (e ao voltar ao app, no máx. a cada 30 min) lê /releases do GitHub, escolhe a mais nova com
+  miolo.zip, liberada (ou de teste se Ajustes → "Versões de teste" ligado) e cujo [nativo:N] ≤ versionCode;
+  baixa e chama next() → troca quando o app vai para o fundo. Versão que deu erro não é rebaixada.
+- versao-miolo.js (PRUMO_MIOLO) e android/nativo-minimo.txt são gerados pelo publicar-apk.sh. Ele compara
+  com a última tag: mudou android/, capacitor.config.json ou package*.json → nativo = versão nova
+  (faixa "Versão nova" pede o APK); senão mantém → só o miolo, silencioso.
+- atualizacao.js: a faixa só aparece se o [nativo:N] da última estável > instalado.
+- 1.9 é nativa (traz a peça): amigos precisam instalar UMA vez pela faixa. Da 1.10 em diante, silencioso.
+- Provas: testes/miolo-prova.js (11). Corrigida a prova da revisão (data em UTC à noite).
+- NÃO testado em aparelho: a troca real do miolo e se os dados ficam (devem: mesma origem). Teste planejado:
+  ele instala a 1.9, liga "Versões de teste", eu publico uma 1.10 só de miolo e ele confere.
