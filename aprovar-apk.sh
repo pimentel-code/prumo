@@ -28,5 +28,9 @@ git push -q -f origin "$tag^{commit}:refs/heads/estavel"
 
 echo
 echo "Liberado para todos: Prumo $versao."
-echo "  · o Prumo dos amigos avisa \"Versão nova\" (confere ao abrir, no máximo a cada 6 h)"
+if gh release view "$tag" --json body --jq .body | grep -q "\[nativo:${versao#1.}\]"; then
+  echo "  · tem parte NATIVA nova: o Prumo dos amigos mostra \"Versão nova\" para instalar (confere a cada 6 h)"
+else
+  echo "  · só o miolo: o Prumo dos amigos se atualiza sozinho, sem aviso (ao abrir e sair do app)"
+fi
 echo "  · convite: https://pimentel-code.github.io/prumo/instalar.html (atualiza em alguns minutos)"
