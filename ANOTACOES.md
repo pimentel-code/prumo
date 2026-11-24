@@ -303,3 +303,4 @@ O site (iPhone) continua igual, com o "Pôr no calendário".
 - NÃO testado no celular: permissão do microfone, esfera pulsando com a voz, widget novo.
 - Backup do anterior em backups/antes-esfera-2026-11-23/.
 - A prova "revisão do que ficou para trás" falha à noite (data em UTC no teste) — já falhava antes.
+- 1.8 (TESTE, 23/11): ícone, ícone adaptativo (drawable/fundo_icone.xml) e splash refeitos no degradê pelo gerar-icones.py; splash agora escura com brilho e o ícone no meio. Backup dos antigos em backups/antes-esfera-2026-11-23/ (icones/ e res/).
