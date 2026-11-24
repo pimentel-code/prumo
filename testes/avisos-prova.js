@@ -127,12 +127,13 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
   globalThis.sobreporLiberado = false;
   await Avisos.lerEstadoAlarme();
   await prova('Ajustes oferece "por cima de outros apps" quando o Android não liberou', () => {
-    const original = abrirPainel; let html = '';
-    abrirPainel = h => { html = h; };
-    painelAjustes(); abrirPainel = original;
-    return html.includes('data-acao="sobrepor"');
+    return ajustesHTML().includes('data-acao="sobrepor"');
   });
   globalThis.sobreporLiberado = true;
+  await Avisos.lerEstadoAlarme();
+  await prova('…e some dos Ajustes depois de liberado', () => !ajustesHTML().includes('data-acao="sobrepor"'));
+  await prova('Ajustes no padrão: chaves liga/desliga e subpágina de avisos', () =>
+    ajustesHTML().includes('role="switch"') && subAjustesHTML('avisar-antes').includes('role="radio"'));
   await Avisos.lerEstadoAlarme();
 
   const salvo = Dados.adicionar(a3);

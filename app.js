@@ -712,7 +712,7 @@ function abrirPainel(html) {
   p.innerHTML = `<div class="painel-fundo" data-acao="fundo"><div class="painel"><div class="puxador"></div>${html}</div></div>`;
 }
 
-function fecharPainel() { document.getElementById('painel').innerHTML = ''; }
+function fecharPainel() { document.getElementById('painel').innerHTML = ''; App.subAjustes = null; }
 
 function painelEditar(id) {
   const item = Dados.itens().find(i => i.id === id);
@@ -803,94 +803,186 @@ function responderRevisao(opcao) {
   painelRevisao();
 }
 
-function painelAjustes() {
-  const e = Dados.carregar();
-  const dias = Dados.diasSemBackup();
-  const aprendidas = Object.entries(e.aprendidas);
-  const alerta = (e.itens.length && dias >= 14)
-    ? `<div class="aviso">Faz ${dias === 999 ? 'tempo' : dias + ' dias'} que você não faz backup. Seus dados existem só neste aparelho.</div>` : '';
+/* ---------- Ajustes ----------
+   Desde 23/11/2026 no padrão dos Ajustes de Android e iPhone: tela cheia com seta
+   de voltar, grupos em cartões, cada linha com ícone colorido + nome curto + à
+   direita o valor atual, uma chave liga/desliga ou uma seta. Texto longo fica
+   em subpáginas ("Como usar o alarme", "Privacidade"). */
 
-  abrirPainel(`<h2>Ajustes</h2>
-    ${alerta}
-    <h3>Seus dados</h3>
-    <button class="opcao" data-acao="exportar"><span class="op-icone">💾</span><div><div>Fazer backup</div>
-      <div class="desc">${Avisos.nativo ? 'Salva um arquivo com tudo. Guarde no Drive ou mande para você mesmo.' : 'Salva um arquivo com tudo. Guarde no Arquivos, iCloud ou Drive.'}</div></div></button>
-    <button class="opcao" data-acao="importar"><span class="op-icone">📂</span><div><div>Restaurar backup</div>
-      <div class="desc">Traz de volta um arquivo salvo, ou passa os dados para outro celular.</div></div></button>
-    <div class="desc" style="margin:4px 2px 0">${e.itens.length} registro${e.itens.length === 1 ? '' : 's'} guardado${e.itens.length === 1 ? '' : 's'} neste aparelho.</div>
+const ICONE_AJ = {
+  esfera:   '<circle cx="12" cy="12" r="7.5"/><circle cx="9.5" cy="10" r=".9" fill="currentColor"/><circle cx="14" cy="13.5" r=".9" fill="currentColor"/><circle cx="12.5" cy="8.6" r=".7" fill="currentColor"/><circle cx="10" cy="14.6" r=".7" fill="currentColor"/>',
+  sino:     '<path d="M6 16.5V11a6 6 0 0 1 12 0v5.5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
+  domingo:  '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M9.5 14.5l2 2 3.5-3.5"/>',
+  testar:   '<path d="M8 5.5v13l10.5-6.5z"/>',
+  alarme:   '<circle cx="12" cy="13" r="7"/><path d="M12 9.5V13l2.5 1.6M4 5.5l3-2.5M20 5.5l-3-2.5"/>',
+  info:     '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><circle cx="12" cy="7.8" r=".9" fill="currentColor"/>',
+  tela:     '<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/>',
+  sobrepor: '<rect x="3" y="7" width="12" height="12" rx="2"/><path d="M9 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-4"/>',
+  backup:   '<path d="M12 4v11M7.5 10.5L12 15l4.5-4.5"/><path d="M4.5 16v2.5A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5V16"/>',
+  restaurar:'<path d="M12 15V4M7.5 8.5L12 4l4.5 4.5"/><path d="M4.5 16v2.5A1.5 1.5 0 0 0 6 20h12a1.5 1.5 0 0 0 1.5-1.5V16"/>',
+  repetir:  '<path d="M4 11a7.5 7.5 0 0 1 13-4.5L19.5 9"/><path d="M19.5 4v5h-5"/><path d="M20 13a7.5 7.5 0 0 1-13 4.5L4.5 15"/><path d="M4.5 20v-5h5"/>',
+  palavra:  '<path d="M4 19l5.5-14h1L16 19M6.2 14h7.6"/><path d="M17 9.5h3.5M17 13h3.5"/>',
+  atualizar:'<path d="M20 12a8 8 0 1 1-2.3-5.6"/><path d="M20 4.5v5h-5"/>',
+  teste:    '<path d="M9.5 3.5h5M10.5 3.5v6L5 18.5A1.5 1.5 0 0 0 6.3 20.5h11.4A1.5 1.5 0 0 0 19 18.5L13.5 9.5v-6"/><path d="M7.5 15h9"/>',
+  ajuda:    '<circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.6a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.1-2.4 3.6"/><circle cx="12" cy="17" r=".8" fill="currentColor"/>',
+  instalar: '<rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M12 7.5v7M9.2 11.8L12 14.6l2.8-2.8"/>',
+  cadeado:  '<rect x="5" y="10.5" width="14" height="10" rx="2.2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
+  lixo:     '<path d="M4.5 7h15M9.5 7V4.5h5V7M6.5 7l1 13h9l1-13"/>',
+  alerta:   '<path d="M12 3.5l9 16H3z"/><path d="M12 10v4.5"/><circle cx="12" cy="17.2" r=".8" fill="currentColor"/>'
+};
+const COR_AJ = { rosa: '#ec4899', roxo: '#8b5cf6', azul: '#3b82f6', laranja: '#f97316', verde: '#22a55a',
+                 cinza: '#64646f', vermelho: '#ef4444', amarelo: '#d99a06', ciano: '#0ea5b7' };
 
-    ${Dados.fixas().length ? '<h3>Contas fixas</h3><div class="lista">' + Dados.fixas().map(f =>
-      `<button class="opcao" data-acao="editar-fixa" data-id="${f.id}"><span class="op-icone">${EMOJI_CATEGORIA[f.categoria] || '🔁'}</span><div>
-       <div>${esc(f.titulo)} · ${esc(fmtMoeda(f.valor))}</div><div class="desc">${f.tipo === 'receita' ? 'entra' : 'sai'} todo dia ${f.dia}</div></div></button>`).join('') + '</div>' : ''}
-
-    ${Avisos.nativo ? avisosAjustesHTML() : ''}
-
-    <h3>Ao abrir</h3>
-    <button class="opcao" data-acao="esfera-ao-abrir"><span class="op-icone">🔮</span><div>
-      <div>Esfera ao abrir: <strong>${Esfera.ligada() ? 'ligada' : 'desligada'}</strong></div>
-      <div class="desc">${Esfera.ligada() ? 'O Prumo abre pela esfera, esperando você dizer o que precisa. Toque para desligar.' : 'O Prumo abre direto nas listas. Toque para ligar a esfera.'}</div></div></button>
-
-    <h3>Palavras aprendidas</h3>
-    ${aprendidas.length
-      ? '<div class="lista">' + aprendidas.map(([p, c]) =>
-          `<div class="item"><div class="item-corpo"><div class="item-titulo">${esc(p)}</div>
-           <div class="item-info">${esc(c)}</div></div>
-           <button class="mini" data-acao="esquecer" data-palavra="${esc(p)}">Esquecer</button></div>`).join('') + '</div>'
-      : '<p>Quando você corrigir a categoria de um lançamento, o Prumo memoriza a palavra e acerta na próxima vez.</p>'}
-
-    <h3>Ajuda</h3>
-    <button class="opcao" data-acao="tutorial"><span class="op-icone">🧭</span><div><div>Ver o tutorial de novo</div>
-      <div class="desc">A apresentação rápida de como usar o Prumo.</div></div></button>
-
-    <h3>Sobre</h3>
-    <p>O Prumo funciona sem internet e não manda nada para lugar nenhum. Tudo o que você anota fica guardado neste aparelho — por isso o backup importa.</p>
-    ${Avisos.nativo ? '' : `<button class="opcao" data-acao="instalar"><span class="op-icone">📲</span><div><div>Como instalar na tela de início</div>
-      <div class="desc">Para abrir igual a um aplicativo, sem barra de navegador.</div></div></button>`}
-    <button class="opcao perigo" data-acao="apagar"><span class="op-icone">🗑️</span><div><div>Apagar tudo</div>
-      <div class="desc">Remove todos os registros deste aparelho. Não tem volta.</div></div></button>`);
+/* Uma linha de ajuste. o = { acao, icone, cor, titulo, sub, valor, chave (true/false), perigo, dados } */
+function linhaAj(o) {
+  const direita = o.chave !== undefined
+    ? `<span class="chave${o.chave ? ' ligada' : ''}" aria-hidden="true"><span></span></span>`
+    : `${o.valor ? `<span class="aj-valor">${esc(o.valor)}</span>` : ''}${o.seta === false ? '' : '<span class="aj-seta" aria-hidden="true">›</span>'}`;
+  const papel = o.chave !== undefined ? ` role="switch" aria-checked="${o.chave ? 'true' : 'false'}"` : '';
+  return `<button type="button" class="aj-linha${o.perigo ? ' perigo' : ''}" data-acao="${o.acao}"${o.dados || ''}${papel}>
+      <span class="aj-icone" style="background:${COR_AJ[o.cor] || COR_AJ.cinza}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${ICONE_AJ[o.icone] || ''}</svg></span>
+      <span class="aj-texto"><span class="aj-titulo">${o.titulo}</span>${o.sub !== undefined ? `<span class="desc aj-sub">${o.sub}</span>` : ''}</span>
+      ${direita}
+    </button>`;
+}
+function grupoAj(titulo, linhas, rodape) {
+  const l = linhas.filter(Boolean);
+  if (!l.length) return '';
+  return `${titulo ? `<div class="aj-cabeca">${titulo}</div>` : ''}<div class="aj-grupo">${l.join('')}</div>${rodape ? `<div class="aj-rodape">${rodape}</div>` : ''}`;
 }
 
-/* Seção "Avisos" dos Ajustes — só no app Android. */
-function avisosAjustesHTML() {
-  const min = Avisos.minutosAntes();
-  const opcoes = [0, 10, 30, 60, 120].map(m =>
-    `<button type="button" class="chip${m === min ? ' ativo' : ''}" data-acao="aviso-min" data-min="${m}">${m === 0 ? 'Na hora' : m < 60 ? m + ' min' : (m / 60) + ' h'}</button>`).join('');
-  const proximos = Avisos.plano().length;
-  const bloqueado = Avisos.permitido === false
-    ? `<div class="aviso">O Android está bloqueando as notificações do Prumo.</div>
-       <button class="opcao" data-acao="permitir-avisos"><span class="op-icone">🔓</span><div><div>Liberar avisos</div>
-       <div class="desc">Se não abrir a pergunta, vá em Ajustes do celular → Apps → Prumo → Notificações.</div></div></button>` : '';
-  return `<h3>Avisos</h3>
-    ${bloqueado}
-    <p>O Prumo avisa sozinho, mesmo fechado e com a tela bloqueada. Compromisso com hora avisa antes; sem hora, às 9 da manhã do dia.</p>
-    <div class="desc" style="margin:0 2px 6px">Avisar compromissos com hora:</div>
-    <div class="confirma-tipos">${opcoes}</div>
-    <div class="desc" style="margin:6px 2px 0">${proximos ? proximos + ' aviso' + (proximos === 1 ? '' : 's') + ' marcado' + (proximos === 1 ? '' : 's') + '.' : 'Nenhum aviso marcado agora.'}</div>
-    <div class="desc" style="margin:14px 2px 6px">Lembrete do que ficou para trás (domingo, 19h):</div>
-    <div class="confirma-tipos">
-      <button type="button" class="chip${Dados.carregar().revisaoSemanal !== false ? ' ativo' : ''}" data-acao="revisao-semanal" data-sim="1">Ligado</button>
-      <button type="button" class="chip${Dados.carregar().revisaoSemanal === false ? ' ativo' : ''}" data-acao="revisao-semanal" data-sim="0">Desligado</button>
-    </div>
-    <button class="opcao" data-acao="testar-aviso"><span class="op-icone">🔔</span><div><div>Testar aviso</div>
-      <div class="desc">Toca um aviso de teste daqui a 10 segundos.</div></div></button>
+function rotuloMin(m) { return m === 0 ? 'Na hora' : m < 60 ? m + ' min antes' : (m / 60) + ' h antes'; }
+function versaoApp() { return '1.' + Math.max(Miolo.versao || 0, (typeof Atualizacao !== 'undefined' && Atualizacao.instalado) || 0); }
 
-    <h3>Versão do app</h3>
-    <button class="opcao" data-acao="procurar-atualizacao"><span class="op-icone">✨</span><div><div>Procurar atualização · você tem a 1.${Math.max(Miolo.versao, Atualizacao.instalado || 0)}</div>
-      <div class="desc">${Miolo.pronto ? 'A ' + Miolo.pronto + ' já foi baixada: entra na próxima vez que você abrir o Prumo.' : 'O Prumo se atualiza sozinho, sem você ver. Só pergunta o número da versão; seus dados não saem do celular.'}</div></div></button>
-    <button class="opcao" data-acao="miolo-teste"><span class="op-icone">🧪</span><div><div>Versões de teste: <strong>${Miolo.recebeTeste() ? 'recebendo' : 'não recebe'}</strong></div>
-      <div class="desc">Para quem testa o Prumo antes dos outros. Deixe desligado se não sabe o que é.</div></div></button>
+/* Abre os Ajustes (ou uma subpágina deles) em tela cheia. */
+function painelAjustes(sub) {
+  if (typeof sub !== 'string') sub = '';   // chamado direto pelo clique: abre a principal
+  const velho = document.querySelector('#painel .tela-ajustes');
+  const mesmaPagina = velho && (velho.dataset.sub || '') === (sub || '');
+  const rolagem = mesmaPagina ? velho.scrollTop : 0;
+  const corpo = sub ? subAjustesHTML(sub) : ajustesHTML();
+  const titulo = { 'avisar-antes': 'Avisar compromissos', palavras: 'Palavras aprendidas',
+                   alarme: 'Como usar o alarme', privacidade: 'Privacidade' }[sub] || 'Ajustes';
+  document.getElementById('painel').innerHTML = `<div class="painel-fundo tela-cheia">
+    <div class="painel tela-ajustes" data-sub="${sub || ''}">
+      <div class="aj-topo">
+        <button type="button" class="icone-botao" data-acao="${sub ? 'ajustes-voltar' : 'fechar'}" aria-label="Voltar">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <h2>${titulo}</h2>
+      </div>
+      ${corpo}
+    </div></div>`;
+  App.subAjustes = sub || null;
+  const nova = document.querySelector('#painel .tela-ajustes');
+  if (nova && rolagem) nova.scrollTop = rolagem;
+}
 
-    <h3>Alarme</h3>
-    <p>Diga "alarme", "alarma", "despertar" ou "me acorda" (ex.: <em>alarme 6h</em> ou <em>alarma daqui a 40 minutos</em>) e o Prumo toca como despertador: som do alarme do celular, vibração e a tela do alarme, com o celular bloqueado ou não, até você tocar em Parar ou Adiar. Também dá para ligar em qualquer compromisso, no Editar.</p>
-    ${Avisos.telaCheia ? '' : `<div class="aviso">O Android não está deixando o alarme acender a tela. Ele ainda toca, mas só aparece na barra de cima.</div>
-      <button class="opcao" data-acao="tela-cheia"><span class="op-icone">📱</span><div><div>Liberar alarme em tela cheia</div>
-      <div class="desc">Abre a tela do Android: ligue "Permitir notificações em tela cheia".</div></div></button>`}
-    ${Avisos.sobrepor ? '' : `<div class="aviso">Com o celular desbloqueado, o alarme aparece só como faixa no alto da tela. Para a tela do alarme (Parar e Adiar) abrir por cima de qualquer app, libere abaixo.</div>
-      <button class="opcao" data-acao="sobrepor"><span class="op-icone">🪟</span><div><div>Mostrar o alarme por cima de outros apps</div>
-      <div class="desc">Abre a tela do Android: ligue "Permitir exibição sobre outros apps" para o Prumo.</div></div></button>`}
-    <button class="opcao" data-acao="testar-alarme"><span class="op-icone">⏰</span><div><div>Testar alarme</div>
-      <div class="desc">Toca o alarme daqui a 10 segundos. Bloqueie a tela para ver.</div></div></button>
-    <p class="desc">Em celular Samsung ou Xiaomi, se algum aviso não chegar: Ajustes do celular → Apps → Prumo → Bateria → <strong>Sem restrições</strong>.</p>`;
+function ajustesHTML() {
+  const e = Dados.carregar();
+  const dias = Dados.diasSemBackup();
+  const nativo = Avisos.nativo;
+  const nAprendidas = Object.keys(e.aprendidas).length;
+  const semBackup = e.itens.length && dias >= 14;
+  let h = '';
+
+  h += grupoAj('Geral', [
+    linhaAj({ acao: 'esfera-ao-abrir', icone: 'esfera', cor: 'rosa', titulo: 'Esfera ao abrir',
+              sub: 'Abre esperando você dizer o que precisa', chave: Esfera.ligada() })
+  ]);
+
+  if (nativo) {
+    const proximos = Avisos.plano().length;
+    h += grupoAj('Avisos', [
+      Avisos.permitido === false && linhaAj({ acao: 'permitir-avisos', icone: 'alerta', cor: 'vermelho',
+        titulo: 'Liberar avisos', sub: '<span class="aj-alerta">O Android está bloqueando os avisos</span>' }),
+      linhaAj({ acao: 'ajustes-sub', dados: ' data-sub="avisar-antes"', icone: 'sino', cor: 'laranja',
+                titulo: 'Avisar compromissos', valor: rotuloMin(Avisos.minutosAntes()) }),
+      linhaAj({ acao: 'revisao-semanal', dados: ` data-sim="${e.revisaoSemanal === false ? '1' : '0'}"`, icone: 'domingo', cor: 'azul',
+                titulo: 'Revisão de domingo', sub: 'Às 19h, lembra o que ficou para trás', chave: e.revisaoSemanal !== false }),
+      linhaAj({ acao: 'testar-aviso', icone: 'testar', cor: 'verde', titulo: 'Testar aviso', sub: 'Chega em 10 segundos', seta: false })
+    ], (proximos ? proximos + ' aviso' + (proximos === 1 ? '' : 's') + ' marcado' + (proximos === 1 ? '' : 's') + '. ' : '') +
+       'Avisa mesmo com o Prumo fechado. Sem hora, avisa às 9h do dia.');
+
+    h += grupoAj('Alarme', [
+      !Avisos.telaCheia && linhaAj({ acao: 'tela-cheia', icone: 'tela', cor: 'vermelho', titulo: 'Liberar alarme em tela cheia',
+        sub: '<span class="aj-alerta">Hoje ele só aparece na barra de cima</span>' }),
+      !Avisos.sobrepor && linhaAj({ acao: 'sobrepor', icone: 'sobrepor', cor: 'amarelo', titulo: 'Alarme por cima de outros apps',
+        sub: 'Para Parar e Adiar abrirem sobre qualquer app' }),
+      linhaAj({ acao: 'testar-alarme', icone: 'alarme', cor: 'roxo', titulo: 'Testar alarme', sub: 'Toca em 10 segundos', seta: false }),
+      linhaAj({ acao: 'ajustes-sub', dados: ' data-sub="alarme"', icone: 'info', cor: 'cinza', titulo: 'Como usar o alarme' })
+    ]);
+  }
+
+  h += grupoAj('Seus dados', [
+    linhaAj({ acao: 'exportar', icone: 'backup', cor: 'azul', titulo: 'Fazer backup',
+              sub: semBackup ? `<span class="aj-alerta">Último há ${dias === 999 ? 'muito tempo' : dias + ' dias'}</span>` : (dias === 999 ? 'Nunca feito' : dias === 0 ? 'Último: hoje' : 'Último: há ' + dias + ' dia' + (dias === 1 ? '' : 's')) }),
+    linhaAj({ acao: 'importar', icone: 'restaurar', cor: 'ciano', titulo: 'Restaurar backup', sub: 'Ou passar para outro celular' }),
+    linhaAj({ acao: 'ajustes-sub', dados: ' data-sub="palavras"', icone: 'palavra', cor: 'roxo', titulo: 'Palavras aprendidas',
+              valor: nAprendidas ? String(nAprendidas) : 'nenhuma' })
+  ], e.itens.length + ' registro' + (e.itens.length === 1 ? '' : 's') + ' guardado' + (e.itens.length === 1 ? '' : 's') + ' só neste aparelho.');
+
+  const fixas = Dados.fixas();
+  if (fixas.length) {
+    h += grupoAj('Contas fixas', fixas.map(f => linhaAj({ acao: 'editar-fixa', dados: ` data-id="${f.id}"`, icone: 'repetir',
+      cor: f.tipo === 'receita' ? 'verde' : 'laranja', titulo: esc(f.titulo) + ' · ' + esc(fmtMoeda(f.valor)),
+      sub: (f.tipo === 'receita' ? 'Entra' : 'Sai') + ' todo dia ' + f.dia })));
+  }
+
+  if (nativo) {
+    h += grupoAj('Atualização', [
+      linhaAj({ acao: 'procurar-atualizacao', icone: 'atualizar', cor: 'verde', titulo: 'Procurar atualização',
+                sub: Miolo.pronto ? 'A ' + Miolo.pronto + ' entra na próxima vez que abrir' : 'O Prumo se atualiza sozinho', valor: versaoApp() }),
+      linhaAj({ acao: 'miolo-teste', icone: 'teste', cor: 'cinza', titulo: 'Versões de teste',
+                sub: 'Só para quem testa antes dos outros', chave: Miolo.recebeTeste() })
+    ]);
+  }
+
+  h += grupoAj('Ajuda', [
+    linhaAj({ acao: 'tutorial', icone: 'ajuda', cor: 'rosa', titulo: 'Ver o tutorial' }),
+    !nativo && linhaAj({ acao: 'instalar', icone: 'instalar', cor: 'azul', titulo: 'Instalar na tela de início' }),
+    linhaAj({ acao: 'ajustes-sub', dados: ' data-sub="privacidade"', icone: 'cadeado', cor: 'cinza', titulo: 'Privacidade' })
+  ]);
+
+  h += grupoAj('', [
+    linhaAj({ acao: 'apagar', icone: 'lixo', cor: 'vermelho', titulo: 'Apagar tudo', perigo: true, seta: false })
+  ]);
+
+  h += `<div class="aj-fim">Prumo ${versaoApp()}</div>`;
+  return h;
+}
+
+function subAjustesHTML(sub) {
+  if (sub === 'avisar-antes') {
+    const min = Avisos.minutosAntes();
+    return grupoAj('Compromisso com hora', [0, 10, 30, 60, 120].map(m =>
+      `<button type="button" class="aj-linha aj-opcao" data-acao="aviso-min" data-min="${m}" role="radio" aria-checked="${m === min}">
+         <span class="aj-texto"><span class="aj-titulo">${rotuloMin(m)}</span></span>
+         <span class="aj-radio${m === min ? ' marcado' : ''}" aria-hidden="true"></span></button>`),
+      'Compromisso sem hora avisa às 9h da manhã do dia.');
+  }
+  if (sub === 'palavras') {
+    const lista = Object.entries(Dados.carregar().aprendidas);
+    if (!lista.length) return '<p class="aj-explica">Quando você corrigir a categoria de um lançamento, o Prumo memoriza a palavra e acerta sozinho na próxima vez. Elas aparecem aqui.</p>';
+    return grupoAj('', lista.map(([pal, cat]) =>
+      `<div class="aj-linha"><span class="aj-texto"><span class="aj-titulo">${esc(pal)}</span><span class="desc aj-sub">${esc(cat)}</span></span>
+         <button type="button" class="mini" data-acao="esquecer" data-palavra="${esc(pal)}">Esquecer</button></div>`),
+      'O Prumo usa estas palavras para acertar a categoria sozinho.');
+  }
+  if (sub === 'alarme') {
+    return `<div class="aj-explica">
+      <p>Diga <strong>"alarme"</strong>, <strong>"alarma"</strong>, <strong>"despertar"</strong> ou <strong>"me acorda"</strong>. Exemplos: <em>alarme 6h</em>, <em>alarma daqui a 40 minutos</em>.</p>
+      <p>O Prumo toca como despertador: som do alarme do celular, vibração e a tela do alarme, com o celular bloqueado ou não, até você tocar em <strong>Parar</strong> ou <strong>Adiar</strong>.</p>
+      <p>Também dá para ligar o alarme em qualquer compromisso, no <strong>Editar</strong>.</p>
+      <p>Celular Samsung ou Xiaomi: se algum aviso não chegar, vá em Ajustes do celular → Apps → Prumo → Bateria → <strong>Sem restrições</strong>.</p></div>`;
+  }
+  if (sub === 'privacidade') {
+    return `<div class="aj-explica">
+      <p>O Prumo funciona sem internet e <strong>não manda nada para lugar nenhum</strong>. Tudo o que você anota fica guardado só neste aparelho.</p>
+      <p>Sem cadastro, sem senha, sem propaganda. Ninguém vê o que você anota.</p>
+      <p>A única coisa que ele pergunta à internet é o número da versão mais nova, para se atualizar.</p>
+      <p>Por isso o <strong>backup</strong> importa: ao trocar de celular, faça um backup e restaure no novo.</p></div>`;
+  }
+  return '';
 }
 
 function painelInstalar() {
@@ -1128,7 +1220,9 @@ document.addEventListener('click', evento => {
     });
   }
   if (acao === 'esfera-ao-abrir') { Esfera.ligar(!Esfera.ligada()); return painelAjustes(); }
-  if (acao === 'esquecer') { Dados.esquecer(alvo.dataset.palavra); return painelAjustes(); }
+  if (acao === 'esquecer') { Dados.esquecer(alvo.dataset.palavra); return painelAjustes('palavras'); }
+  if (acao === 'ajustes-sub') return painelAjustes(alvo.dataset.sub);
+  if (acao === 'ajustes-voltar') return painelAjustes();
   if (acao === 'instalar') return painelInstalar();
   if (acao === 'apagar') {
     if (!confirm('Apagar TODOS os registros deste aparelho?\n\nFaça um backup antes se tiver dúvida.')) return;
@@ -1173,7 +1267,7 @@ function iniciar() {
     render();
   }));
 
-  document.getElementById('btAjustes').addEventListener('click', painelAjustes);
+  document.getElementById('btAjustes').addEventListener('click', () => painelAjustes());
   document.getElementById('btAjuda').addEventListener('click', () => { fecharPainel(); Tutorial.abrir(); });
 
   const linhaBusca = document.getElementById('linhaBusca');
@@ -1270,6 +1364,7 @@ function iniciar() {
     if (AppNativo) AppNativo.addListener('backButton', () => {
       if (Tutorial.aberto) return Tutorial.voltar();
       if (Esfera.aberta) return Esfera.fechar();
+      if (App.subAjustes && document.querySelector('#painel .tela-ajustes')) return painelAjustes();
       if (document.getElementById('painel').innerHTML) { fecharPainel(); return render(); }
       if (App.rascunho) { App.rascunho = null; return renderConfirma(); }
       if (App.busca !== null) { document.getElementById('btBusca').click(); return; }

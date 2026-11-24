@@ -527,7 +527,7 @@ test('a esfera desliga nos Ajustes e não volta ao abrir', async ({ page }) => {
   await page.click('[data-esfera="fechar"]');
   await page.click('#btAjustes');
   await page.click('[data-acao="esfera-ao-abrir"]');
-  await expect(page.locator('[data-acao="esfera-ao-abrir"]')).toContainText('desligada');
+  await expect(page.locator('[data-acao="esfera-ao-abrir"]')).toHaveAttribute('aria-checked', 'false');
   await page.reload();
   await expect(page.locator('#campoEntrada')).toBeVisible();
   await expect(page.locator('#esfera')).toHaveCount(0);
@@ -543,4 +543,15 @@ test('a esfera desenha as partículas (o quadro não fica vazio)', async ({ page
     return n;
   });
   expect(acesos).toBeGreaterThan(500);
+});
+
+test('Ajustes em tela cheia, com subpágina e voltar', async ({ page }) => {
+  await page.click('#btAjustes');
+  await expect(page.locator('.tela-ajustes h2')).toHaveText('Ajustes');
+  await page.click('[data-sub="privacidade"]');
+  await expect(page.locator('.tela-ajustes h2')).toHaveText('Privacidade');
+  await page.click('[data-acao="ajustes-voltar"]');
+  await expect(page.locator('.tela-ajustes h2')).toHaveText('Ajustes');
+  await page.click('.aj-topo [data-acao="fechar"]');
+  await expect(page.locator('.tela-ajustes')).toHaveCount(0);
 });

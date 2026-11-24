@@ -706,3 +706,80 @@ body.com-esfera { overflow: hidden; }
   .esfera-fundo { animation: none; }
   .esfera-bt.mic.ligado { animation: none; }
 }
+
+/* ---------- Ajustes no padrão Android/iPhone (23/11/2026) ---------- */
+
+.painel-fundo.tela-cheia { align-items: stretch; background: var(--fundo); animation: none; }
+.painel.tela-ajustes {
+  max-width: 640px; max-height: none; height: 100%; border-radius: 0;
+  padding: 0 16px calc(28px + env(safe-area-inset-bottom));
+  animation: deslizar .22s ease-out;
+}
+@keyframes deslizar { from { transform: translateX(24px); opacity: .4; } to { transform: none; opacity: 1; } }
+.aj-topo {
+  position: sticky; top: 0; z-index: 2; background: var(--fundo);
+  display: flex; align-items: center; gap: 6px;
+  margin: 0 -16px; padding: max(env(safe-area-inset-top), 8px) 8px 8px;
+}
+.aj-topo h2 { margin: 0; font-size: 22px; font-weight: 700; }
+.aj-topo .icone-botao { color: var(--texto); }
+
+.aj-cabeca {
+  font-size: 13px; font-weight: 650; color: var(--acento);
+  margin: 22px 6px 8px; letter-spacing: .01em;
+}
+.aj-grupo {
+  background: var(--cartao); border-radius: 18px; overflow: hidden;
+}
+.aj-grupo + .aj-cabeca, .aj-grupo + .aj-grupo { margin-top: 22px; }
+.aj-rodape { font-size: 13px; color: var(--suave); margin: 8px 8px 0; line-height: 1.4; }
+
+.aj-linha {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  min-height: 60px; padding: 10px 14px;
+  background: none; border: 0; color: var(--texto); text-align: left; cursor: pointer;
+  position: relative;
+}
+button.aj-linha:active { background: rgba(255, 255, 255, .05); }
+/* Divisória fina entre linhas, começando depois do ícone (como no iPhone/Android). */
+.aj-linha + .aj-linha::before {
+  content: ''; position: absolute; top: 0; right: 0; left: 64px;
+  border-top: 1px solid var(--linha);
+}
+.aj-opcao + .aj-opcao::before, .aj-grupo > div.aj-linha + div.aj-linha::before { left: 14px; }
+.aj-icone {
+  flex: none; width: 34px; height: 34px; border-radius: 10px; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+}
+.aj-icone svg { width: 20px; height: 20px; }
+.aj-texto { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.aj-titulo { font-size: 16.5px; font-weight: 500; }
+.aj-sub { font-size: 13.5px; color: var(--suave); line-height: 1.3; }
+.aj-alerta { color: var(--alerta); font-weight: 600; }
+.aj-valor { flex: none; font-size: 15px; color: var(--suave); max-width: 45%; text-align: right; }
+.aj-seta { flex: none; font-size: 24px; line-height: 1; color: #5c5a66; margin-left: -4px; }
+.aj-linha.perigo { justify-content: flex-start; }
+.aj-linha.perigo .aj-titulo { color: var(--saiu); font-weight: 600; }
+
+/* Chave liga/desliga */
+.chave {
+  flex: none; width: 50px; height: 30px; border-radius: 999px; background: #3a3a43;
+  position: relative; transition: background .2s;
+}
+.chave span {
+  position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%;
+  background: #fff; transition: transform .2s; box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
+}
+.chave.ligada { background: var(--degrade-botao); }
+.chave.ligada span { transform: translateX(20px); }
+
+/* Escolha única (rádio) */
+.aj-radio {
+  flex: none; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #5c5a66; position: relative;
+}
+.aj-radio.marcado { border-color: var(--acento); }
+.aj-radio.marcado::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--acento); }
+
+.aj-explica { background: var(--cartao); border-radius: 18px; padding: 6px 18px; margin-top: 12px; }
+.painel .aj-explica p { color: var(--texto); font-size: 15.5px; line-height: 1.55; margin: 12px 0; }
+.aj-fim { text-align: center; color: var(--suave); font-size: 13px; margin: 26px 0 4px; }
