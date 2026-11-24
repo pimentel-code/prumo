@@ -8,10 +8,10 @@
     "notas": "Esfera fixa na tela Hoje."
   },
   "teste": {
-    "codigo": 16,
+    "codigo": 17,
     "nativo": 14,
-    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.16/Prumo.apk",
-    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.16/miolo.zip",
-    "notas": "Atualização não depende mais da consulta do GitHub que tem limite de 60 por hora (o erro 403): o app lê um arquivo de versões sem limite."
+    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.17/Prumo.apk",
+    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.17/miolo.zip",
+    "notas": "Prova da atualização silenciosa (só o número da versão muda)."
   }
 }
