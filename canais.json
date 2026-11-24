@@ -8,11 +8,11 @@
     "notas": "Esfera fixa na tela Hoje."
   },
   "teste": {
-    "codigo": 18,
+    "codigo": 19,
     "nativo": 18,
-    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.18/Prumo.apk",
-    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.18/miolo.zip",
-    "sha256": "756b0d961ca6cbcaf935c08c6b39c5373faf9ac151cf0a427a2c7e47e625340e",
-    "notas": "Conserto do download silencioso: a peça exige o SHA-256 do miolo (agora vai no canais.json). Faixa Versão nova também avisa versões de teste a quem testa."
+    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.19/Prumo.apk",
+    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.19/miolo.zip",
+    "sha256": "4c39855b33a60e3b155ea8c588c5e8b99e90ae77b41ee9ab8b0a4f24155cde3c",
+    "notas": "Prova da atualização silenciosa com SHA-256 (só o número da versão muda)."
   }
 }
