@@ -484,65 +484,68 @@ test('revisão do que ficou para trás: uma de cada vez', async ({ page }) => {
   await expect(page.locator('.item-titulo').filter({ hasText: 'Mandar e-mail' })).toHaveCount(0);
 });
 
-/* ---------- esfera ao abrir (23/11/2026) ---------- */
+/* ---------- esfera (23/11/2026; fixa na tela Hoje desde a 1.13) ---------- */
 
 async function abrirComEsfera(page) {
   await page.evaluate(() => { localStorage.clear(); localStorage.setItem('prumo.tutorial.visto', '1'); });
   await page.reload();
-  await expect(page.locator('#esfera')).toBeVisible();
+  await expect(page.locator('#esferaHoje')).toBeVisible();
 }
 
-test('a esfera recebe ao abrir e o ✕ leva às listas', async ({ page }) => {
+const particulas = (page, sel) => page.evaluate(s => {
+  const c = document.querySelector(s);
+  const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+  let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 20) n++;
+  return n;
+}, sel);
+
+test('a esfera fica viva na tela Hoje, sem janela ao abrir', async ({ page }) => {
   await abrirComEsfera(page);
-  await expect(page.locator('#esferaTexto')).toContainText('diga o que precisa');
-  await page.click('[data-esfera="fechar"]');
   await expect(page.locator('#esfera')).toHaveCount(0);
-  await expect(page.locator('#campoEntrada')).toBeVisible();
+  await expect(page.locator('#esferaHojeTexto')).toContainText('diga o que precisa');
+  await page.waitForTimeout(400);
+  expect(await particulas(page, '#esferaHoje canvas')).toBeGreaterThan(500);
 });
 
-test('escrever na esfera mostra o que entendeu e Guardar anota', async ({ page }) => {
+test('a esfera só aparece na aba Hoje', async ({ page }) => {
   await abrirComEsfera(page);
-  await page.fill('#esferaCampo', 'almoço 45 reais');
-  await page.press('#esferaCampo', 'Enter');
-  await expect(page.locator('#esferaTexto')).toContainText('Saiu');
-  await expect(page.locator('#esferaTexto')).toContainText('45');
-  await page.click('[data-esfera="guardar"]');
-  await expect(page.locator('#esfera')).toHaveCount(0);
-  await expect(page.locator('.confirma')).toHaveCount(0);
+  await page.click('.aba[data-aba="dinheiro"]');
+  await expect(page.locator('#esferaHoje')).toBeHidden();
+  await page.click('.aba[data-aba="hoje"]');
+  await expect(page.locator('#esferaHoje')).toBeVisible();
+});
+
+test('com a esfera, escrever na caixa continua funcionando', async ({ page }) => {
+  await abrirComEsfera(page);
+  await anotar(page, 'almoço 45 reais');
+  await guardar(page);
   await page.click('.aba[data-aba="dinheiro"]');
   await expect(page.locator('#conteudo')).toContainText('Almoço');
 });
 
-test('Corrigir na esfera abre a confirmação completa', async ({ page }) => {
-  await abrirComEsfera(page);
+test('janela da esfera (quando chamada): Guardar anota e Corrigir abre a confirmação', async ({ page }) => {
+  await page.evaluate(() => Esfera.abrir());
+  await page.fill('#esferaCampo', 'almoço 45 reais');
+  await page.press('#esferaCampo', 'Enter');
+  await expect(page.locator('#esferaTexto')).toContainText('Saiu');
+  await page.click('[data-esfera="guardar"]');
+  await expect(page.locator('#esfera')).toHaveCount(0);
+  await expect(page.locator('.confirma')).toHaveCount(0);
+  await page.evaluate(() => Esfera.abrir());
   await page.fill('#esferaCampo', 'dentista quinta 15h');
   await page.press('#esferaCampo', 'Enter');
   await page.click('[data-esfera="corrigir"]');
-  await expect(page.locator('#esfera')).toHaveCount(0);
   await expect(page.locator('.confirma')).toBeVisible();
 });
 
-test('a esfera desliga nos Ajustes e não volta ao abrir', async ({ page }) => {
+test('a esfera desliga nos Ajustes e some da tela Hoje', async ({ page }) => {
   await abrirComEsfera(page);
-  await page.click('[data-esfera="fechar"]');
   await page.click('#btAjustes');
   await page.click('[data-acao="esfera-ao-abrir"]');
   await expect(page.locator('[data-acao="esfera-ao-abrir"]')).toHaveAttribute('aria-checked', 'false');
   await page.reload();
   await expect(page.locator('#campoEntrada')).toBeVisible();
-  await expect(page.locator('#esfera')).toHaveCount(0);
-});
-
-test('a esfera desenha as partículas (o quadro não fica vazio)', async ({ page }) => {
-  await abrirComEsfera(page);
-  await page.waitForTimeout(400);
-  const acesos = await page.evaluate(() => {
-    const c = document.querySelector('.esfera-tela');
-    const d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
-    let n = 0; for (let i = 3; i < d.length; i += 4) if (d[i] > 20) n++;
-    return n;
-  });
-  expect(acesos).toBeGreaterThan(500);
+  await expect(page.locator('#esferaHoje')).toBeHidden();
 });
 
 test('Ajustes em tela cheia, com subpágina e voltar', async ({ page }) => {

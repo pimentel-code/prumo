@@ -886,8 +886,8 @@ function ajustesHTML() {
   let h = '';
 
   h += grupoAj('Geral', [
-    linhaAj({ acao: 'esfera-ao-abrir', icone: 'esfera', cor: 'rosa', titulo: 'Esfera ao abrir',
-              sub: 'Abre esperando você dizer o que precisa', chave: Esfera.ligada() })
+    linhaAj({ acao: 'esfera-ao-abrir', icone: 'esfera', cor: 'rosa', titulo: 'Esfera na tela Hoje',
+              sub: 'Toque nela ou no microfone para falar', chave: Esfera.ligada() })
   ]);
 
   if (nativo) {
@@ -1074,6 +1074,7 @@ function render() {
   document.querySelectorAll('.aba').forEach(b =>
     b.classList.toggle('ativa', App.busca === null && b.dataset.aba === App.aba));
   renderConfirma();
+  if (typeof EsferaHoje !== 'undefined') EsferaHoje.atualizar();
 }
 
 /* ---------- eventos ---------- */
@@ -1219,7 +1220,7 @@ document.addEventListener('click', evento => {
       render(); if (document.querySelector('#painel h2')) painelAjustes();
     });
   }
-  if (acao === 'esfera-ao-abrir') { Esfera.ligar(!Esfera.ligada()); return painelAjustes(); }
+  if (acao === 'esfera-ao-abrir') { Esfera.ligar(!Esfera.ligada()); render(); return painelAjustes(); }
   if (acao === 'esquecer') { Dados.esquecer(alvo.dataset.palavra); return painelAjustes('palavras'); }
   if (acao === 'ajustes-sub') return painelAjustes(alvo.dataset.sub);
   if (acao === 'ajustes-voltar') return painelAjustes();
@@ -1285,22 +1286,16 @@ function iniciar() {
 
   render();
   if (Tutorial.precisa()) Tutorial.abrir();
-  else if (Esfera.ligada()) Esfera.abrir();
+  // Desde a 1.13 a esfera fica na tela Hoje (EsferaHoje), sem janela ao abrir.
 
-  // Voltou ao Prumo depois de 10 minutos fora? A esfera recebe de novo.
-  let saiuEm = 0;
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { saiuEm = Date.now(); return; }
-    if (saiuEm && Date.now() - saiuEm > 10 * 60 * 1000 && Esfera.ligada() && !Tutorial.aberto
-        && !App.rascunho && !document.getElementById('painel').innerHTML) Esfera.abrir();
-    saiuEm = 0;
-  });
+  // Falar: pela esfera da tela Hoje; com ela desligada, pela janela.
+  App.falar = () => Esfera.ligada() ? EsferaHoje.ouvir() : Esfera.abrir({ ouvir: true });
 
   // Site: o 🎤 aparece se o navegador reconhece voz (no app Android, logo abaixo).
   if (!Avisos.nativo && Esfera.temVoz()) {
     const bt = document.getElementById('btVoz');
     bt.hidden = false;
-    bt.addEventListener('click', () => Esfera.abrir({ ouvir: true }));
+    bt.addEventListener('click', () => App.falar());
   }
 
   // O lembrete de backup não aparece mais na tela principal (pedido dele, 23/11/2026):
@@ -1318,7 +1313,7 @@ function iniciar() {
     const btVoz = document.getElementById('btVoz');
     btVoz.hidden = false;
     btVoz.addEventListener('click', async () => {
-      if (typeof Esfera !== 'undefined') return Esfera.abrir({ ouvir: true });
+      if (typeof Esfera !== 'undefined') return EsferaHoje.ouvindo ? EsferaHoje.parar() : App.falar();
       try {
         const texto = await Avisos.ouvir();
         if (!texto) return;

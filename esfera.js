@@ -3,8 +3,10 @@
    Você fala (ou escreve), ela mostra o que entendeu, e um toque guarda.
    Por dentro é o mesmo interpretador de sempre: sem internet, sem IA, sem conta.
 
-   Aparece: ao abrir o app, ao voltar depois de 10 minutos fora, pelo "Falar" do
-   widget e pelo 🎤 da caixa. Desliga em Ajustes → "Esfera ao abrir". */
+   Desde a 1.13 a esfera mora na tela Hoje (EsferaHoje, no fim deste arquivo):
+   fica viva o tempo todo e reage à voz quando você toca nela ou no 🎤.
+   A janela (Esfera.abrir) só aparece se a esfera da tela Hoje estiver desligada
+   em Ajustes e você tocar no 🎤. */
 
 const Esfera = {
   CHAVE: 'prumo.esfera.aoAbrir',
@@ -227,8 +229,9 @@ const Esfera = {
 
   /* ---------- a esfera de partículas ---------- */
 
-  prepararTela(canvas) {
-    if (!canvas || !canvas.getContext) return;
+  prepararTela(canvas, ativo) {
+    if (!canvas || !canvas.getContext || canvas._rodando) return;
+    ativo = ativo || (() => this.aberta);
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const N = 3200;
@@ -252,12 +255,22 @@ const Esfera = {
       const i = Math.floor(t), f = t - i, a = CORES[i], b = CORES[i + 1];
       return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
     };
-    this.inicio = performance.now();
+    if (!this.inicio) this.inicio = performance.now();
+    canvas._rodando = true;
+    let conta = 0;
+    // Fora da tela (rolou para baixo) não desenha: poupa bateria.
+    if (window.IntersectionObserver && !canvas._olho) {
+      canvas._olho = new IntersectionObserver(e => { canvas._fora = !e[0].isIntersecting; });
+      canvas._olho.observe(canvas);
+    }
 
     const desenhar = agora => {
-      if (!this.aberta) return;
-      this.quadro = requestAnimationFrame(desenhar);
-      if (document.hidden) return;
+      if (!ativo()) { canvas._rodando = false; return; }
+      const id = requestAnimationFrame(desenhar);
+      if (canvas === document.querySelector('#esfera canvas')) this.quadro = id;
+      if (document.hidden || canvas._fora) return;
+      // Parada, sem voz: 30 quadros por segundo bastam (metade da bateria).
+      if (this.nivel < .02 && this.nivelSuave < .02 && (conta++ % 2)) return;
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
       const L = canvas.clientWidth, A = canvas.clientHeight;
       if (canvas.width !== Math.round(L * dpr)) { canvas.width = Math.round(L * dpr); canvas.height = Math.round(A * dpr); }
@@ -299,6 +312,80 @@ const Esfera = {
       }
       ctx.globalCompositeOperation = 'source-over';
     };
-    this.quadro = requestAnimationFrame(desenhar);
+    requestAnimationFrame(desenhar);
+  }
+};
+
+/* ---------- a esfera fixa na tela Hoje ---------- */
+
+const EsferaHoje = {
+  visivel: false,
+  ouvindo: false,
+  PADRAO: 'Toque na esfera ou no microfone<br>e me diga o que precisa',
+
+  el() { return typeof document !== 'undefined' && document.getElementById ? document.getElementById('esferaHoje') : null; },
+
+  /* Chamado a cada render(): mostra na aba Hoje (sem busca) se estiver ligada. */
+  atualizar() {
+    const el = this.el();
+    if (!el || !el.querySelector || !el.querySelector('canvas')) return;
+    const sim = Esfera.ligada() && App.busca === null && App.aba === 'hoje';
+    el.hidden = !sim;
+    if (document.body && document.body.classList) document.body.classList.toggle('com-esfera-hoje', sim);
+    if (!el.dataset.pronto) {
+      el.dataset.pronto = '1';
+      el.querySelector('canvas').addEventListener('click', () => this.ouvindo ? this.parar() : this.ouvir());
+      this.status(this.PADRAO);
+    }
+    this.visivel = sim;
+    if (sim) Esfera.prepararTela(el.querySelector('canvas'), () => this.visivel);
+    else if (this.ouvindo) this.parar();
+  },
+
+  status(html) {
+    const t = document.getElementById('esferaHojeTexto');
+    if (t) t.innerHTML = html;
+  },
+
+  marcar(sim) {
+    const el = this.el();
+    if (el) el.classList.toggle('ouvindo', sim);
+    const b = document.getElementById('btVoz');
+    if (b) b.classList.toggle('ligado', sim);
+  },
+
+  async ouvir() {
+    if (this.ouvindo || !Esfera.temVoz()) return;
+    if (!this.visivel) { App.aba = 'hoje'; App.busca = null; if (typeof fecharPainel === 'function') fecharPainel(); render(); }
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (App.rascunho) { App.rascunho = null; renderConfirma(); }
+    this.ouvindo = true; this.marcar(true);
+    this.status('Pode falar…');
+    const parcial = t => { if (t) this.status('“' + esc(t) + '”'); };
+    const volume = n => { Esfera.nivel = n; };
+    let texto = '';
+    try {
+      if (typeof Avisos !== 'undefined' && Avisos.nativo) texto = await Avisos.escutar(volume, parcial);
+      else texto = await Esfera.ouvirNavegador(volume, parcial);
+    } catch (e) {
+      this.fim();
+      this.status(esc((e && e.message) || 'Não consegui ouvir.') + '<br>Você pode escrever na caixa lá em cima.');
+      return;
+    }
+    this.fim();
+    if (!texto) { this.status('Não ouvi nada.<br>Toque na esfera e tente de novo.'); return; }
+    this.status('“' + esc(texto) + '”');
+    const campo = document.getElementById('campoEntrada');
+    campo.value = texto;
+    aoEnviar({ preventDefault() {} });     // a confirmação "Entendi assim" de sempre
+    setTimeout(() => { if (!this.ouvindo) this.status(this.PADRAO); }, 6000);
+  },
+
+  fim() { this.ouvindo = false; this.marcar(false); Esfera.nivel = 0; },
+
+  parar() {
+    if (!this.ouvindo) return;
+    if (typeof Avisos !== 'undefined' && Avisos.nativo) Avisos.pararEscuta();
+    else if (Esfera.rec) { try { Esfera.rec.stop(); } catch (e) {} }
   }
 };
