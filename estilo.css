@@ -794,3 +794,4 @@ button.aj-linha:active { background: rgba(255, 255, 255, .05); }
 .com-esfera-hoje .vazio { padding-top: 10px; }
 .com-esfera-hoje .vazio-arte { display: none; }
 .entrada button.voz.ligado { background: var(--degrade-botao); color: #fff; box-shadow: 0 0 0 5px rgba(236, 72, 153, .2); animation: esfera-pulsa 1.4s ease-in-out infinite; }
+.aj-diario { font-size: 14.5px; line-height: 1.35; }

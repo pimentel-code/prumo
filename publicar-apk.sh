@@ -36,6 +36,9 @@ if [ -z "$ultima" ] || ! git diff --quiet "$ultima" -- android capacitor.config.
      ':!android/versao.properties' ':!android/nativo-minimo.txt' ':!android/app/src/main/assets'; then
   nativo=$novo
 fi
+# FORCAR_NATIVO=1 prumo atualizar "…": obriga a instalar o APK (faixa "Versão nova"),
+# por exemplo quando a atualização silenciosa precisa ser consertada pelo caminho antigo.
+[ "${FORCAR_NATIVO:-}" = "1" ] && nativo=$novo
 echo "$nativo" > android/nativo-minimo.txt
 printf '/* Gerado pelo publicar-apk.sh: o número da versão deste miolo (o N de 1.N). */\nconst PRUMO_MIOLO = %s;\n' "$novo" > versao-miolo.js
 

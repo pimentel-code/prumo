@@ -12,7 +12,7 @@
 const Atualizacao = {
   API: 'https://api.github.com/repos/pimentel-code/prumo/releases/latest',
   CHAVE: 'prumo.atualizacao',
-  INTERVALO: 6 * 3600 * 1000,      // confere no máximo a cada 6 horas
+  INTERVALO: 30 * 60 * 1000,       // confere no máximo a cada 30 minutos (era 6 h até a 1.13)
   instalado: 0,                    // versionCode do app (o "N" de "1.N")
   nova: null,                      // { versao, codigo, url, notas }
   dispensada: false,               // "Agora não": some até o app reabrir

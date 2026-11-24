@@ -11,7 +11,7 @@ async function prova(nome, fn) {
 const peca = { baixados: [], proximo: null, pacotes: [],
   async notifyAppReady() { peca.avisou = true; return {}; },
   async list() { return { bundles: peca.pacotes }; },
-  async download(o) { peca.baixados.push(o); const b = { id: 'id' + o.version, version: o.version, status: 'pending' }; peca.pacotes.push(b); return b; },
+  async download(o) { peca.baixados.push(o); const b = { id: 'id' + o.version.replace('1.', ''), version: o.version, status: 'pending' }; peca.pacotes.push(b); return b; },
   async next(o) { peca.proximo = o.id; return {}; }
 };
 window.Capacitor.Plugins.CapacitorUpdater = peca;
@@ -25,7 +25,7 @@ globalThis.fetch = async url => {
   if (/releases\?/.test(url)) return { ok: true, status: 200, async json() { return lista; } };
   return { ok: true, status: 200, async json() { return lista.find(r => !r.prerelease) || {}; } };
 };
-const limpar = () => { peca.baixados = []; peca.proximo = null; peca.pacotes = []; localStorage.removeItem(Miolo.CHAVE_VISTO); };
+const limpar = () => { peca.baixados = []; peca.proximo = null; peca.pacotes = []; localStorage.removeItem(Miolo.CHAVE_VISTO); localStorage.removeItem(Miolo.CHAVE_FALHOU); };
 
 (async () => {
   Miolo.versao = 9; globalThis.versaoInstalada = 9;
@@ -55,12 +55,18 @@ const limpar = () => { peca.baixados = []; peca.proximo = null; peca.pacotes = [
 
   limpar();
   lista = [rel('v1.10', 9)];
-  peca.pacotes = [{ id: 'velho', version: '10', status: 'error' }];
-  await prova('versão que já falhou ao abrir neste celular não é baixada de novo', async () =>
-    (await Miolo.conferir(true)) === null && peca.baixados.length === 0);
+  peca.download = async () => { throw new Error('rede caiu'); };
+  await prova('download que falha fica anotado no diário', async () =>
+    (await Miolo.conferir(true)) === null && Miolo.diario()[0].texto.includes('rede caiu'));
+  await prova('…e não tenta de novo no mesmo dia sozinho', async () => {
+    localStorage.removeItem(Miolo.CHAVE_VISTO);
+    return (await Miolo.conferir(false)) === null && Miolo.diario()[0].texto.includes('amanhã'); });
+  peca.download = async (o) => { peca.baixados.push(o); const b = { id: 'id' + o.version.replace('1.', ''), version: o.version, status: 'pending' }; peca.pacotes.push(b); return b; };
+  await prova('…mas tenta na hora se a pessoa tocar em Procurar atualização', async () =>
+    (await Miolo.conferir(true)) === '1.10');
 
   limpar();
-  peca.pacotes = [{ id: 'jaTinha', version: '10', status: 'pending' }];
+  peca.pacotes = [{ id: 'jaTinha', version: '1.10', status: 'pending' }];
   await prova('miolo já baixado antes é reaproveitado, sem baixar de novo', async () =>
     (await Miolo.conferir(true)) === '1.10' && peca.baixados.length === 0 && peca.proximo === 'jaTinha');
 
@@ -76,6 +82,7 @@ const limpar = () => { peca.baixados = []; peca.proximo = null; peca.pacotes = [
   lista = [rel('v1.10', 9)];
   await Miolo.conferir(true);
   peca.baixados = [];
+  await prova('o nome da versão vai no formato 1.N', () => peca.baixados.length === 0 || /^1\.\d+$/.test(peca.baixados[0].version));
   await prova('não pergunta ao GitHub de novo antes de 30 minutos', async () =>
     (await Miolo.conferir(false)) === null && peca.baixados.length === 0);
 

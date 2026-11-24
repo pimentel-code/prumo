@@ -862,7 +862,7 @@ function painelAjustes(sub) {
   const rolagem = mesmaPagina ? velho.scrollTop : 0;
   const corpo = sub ? subAjustesHTML(sub) : ajustesHTML();
   const titulo = { 'avisar-antes': 'Avisar compromissos', palavras: 'Palavras aprendidas',
-                   alarme: 'Como usar o alarme', privacidade: 'Privacidade' }[sub] || 'Ajustes';
+                   alarme: 'Como usar o alarme', privacidade: 'Privacidade', diagnostico: 'Diagnóstico' }[sub] || 'Ajustes';
   document.getElementById('painel').innerHTML = `<div class="painel-fundo tela-cheia">
     <div class="painel tela-ajustes" data-sub="${sub || ''}">
       <div class="aj-topo">
@@ -933,7 +933,8 @@ function ajustesHTML() {
       linhaAj({ acao: 'procurar-atualizacao', icone: 'atualizar', cor: 'verde', titulo: 'Procurar atualização',
                 sub: Miolo.pronto ? 'A ' + Miolo.pronto + ' entra na próxima vez que abrir' : 'O Prumo se atualiza sozinho', valor: versaoApp() }),
       linhaAj({ acao: 'miolo-teste', icone: 'teste', cor: 'cinza', titulo: 'Versões de teste',
-                sub: 'Só para quem testa antes dos outros', chave: Miolo.recebeTeste() })
+                sub: 'Só para quem testa antes dos outros', chave: Miolo.recebeTeste() }),
+      linhaAj({ acao: 'ajustes-sub', dados: ' data-sub="diagnostico"', icone: 'info', cor: 'cinza', titulo: 'Diagnóstico da atualização' })
     ]);
   }
 
@@ -974,6 +975,16 @@ function subAjustesHTML(sub) {
       <p>O Prumo toca como despertador: som do alarme do celular, vibração e a tela do alarme, com o celular bloqueado ou não, até você tocar em <strong>Parar</strong> ou <strong>Adiar</strong>.</p>
       <p>Também dá para ligar o alarme em qualquer compromisso, no <strong>Editar</strong>.</p>
       <p>Celular Samsung ou Xiaomi: se algum aviso não chegar, vá em Ajustes do celular → Apps → Prumo → Bateria → <strong>Sem restrições</strong>.</p></div>`;
+  }
+  if (sub === 'diagnostico') {
+    const d = Miolo.diario();
+    const fmt = iso => { const x = new Date(iso); return String(x.getDate()).padStart(2, '0') + '/' + String(x.getMonth() + 1).padStart(2, '0') + ' ' + String(x.getHours()).padStart(2, '0') + ':' + String(x.getMinutes()).padStart(2, '0'); };
+    return grupoAj('Este celular', [
+      `<div class="aj-linha"><span class="aj-texto"><span class="aj-titulo">Miolo 1.${Miolo.versao}</span><span class="desc aj-sub">Parte nativa 1.${(typeof Atualizacao !== 'undefined' && Atualizacao.instalado) || '?'} · peça de atualização ${Miolo.plugin() ? 'presente' : 'AUSENTE'} · teste ${Miolo.recebeTeste() ? 'ligado' : 'desligado'}</span></span></div>`
+    ]) + grupoAj('O que aconteceu (mais recente primeiro)', d.length
+      ? d.map(x => `<div class="aj-linha"><span class="aj-texto"><span class="aj-sub">${esc(fmt(x.em))}</span><span class="aj-titulo aj-diario">${esc(x.texto)}</span></span></div>`)
+      : ['<div class="aj-linha"><span class="aj-texto"><span class="aj-titulo">Nada anotado ainda</span></span></div>'],
+      'Se a atualização não chegar, mande um print desta tela.');
   }
   if (sub === 'privacidade') {
     return `<div class="aj-explica">
@@ -1249,6 +1260,9 @@ function mostrarSugestoes(sim) {
 }
 
 function iniciar() {
+  // Primeiro de tudo: avisa a peça de atualização que este miolo abriu (senão ela
+  // desfaz a versão nova em 10 s). Se o JS estivesse quebrado, nem chegaria aqui.
+  if (typeof Miolo !== 'undefined' && window.Capacitor) Miolo.iniciar();
   document.getElementById('formEntrada').addEventListener('submit', aoEnviar);
 
   const hoje = new Date();
@@ -1302,7 +1316,6 @@ function iniciar() {
   // fica só nos Ajustes, em laranja, na linha "Fazer backup".
 
   if (Avisos.nativo) {
-    Miolo.iniciar();
     Avisos.preparar().then(() => renderConfirma());
     // Versão nova liberada? Confere ao abrir e ao voltar para o app.
     const conferirVersao = () => Atualizacao.conferir().then(n => { if (n) render(); });

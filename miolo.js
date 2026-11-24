@@ -21,6 +21,19 @@ const Miolo = {
   INTERVALO: 30 * 60 * 1000,            // pergunta ao GitHub no máximo a cada 30 min
   versao: typeof PRUMO_MIOLO !== 'undefined' ? PRUMO_MIOLO : 0,
   pronto: null,                         // versão já baixada esperando a troca
+  CHAVE_DIARIO: 'prumo.miolo.diario',   // últimas etapas, para o Diagnóstico nos Ajustes
+  CHAVE_FALHOU: 'prumo.miolo.falhou',   // { "1.13": quando falhou } — tenta de novo 1x por dia
+
+  /* Anota uma etapa no diário (as 15 últimas). Aparece em Ajustes → Diagnóstico. */
+  anotar(texto) {
+    try {
+      const d = JSON.parse(localStorage.getItem(this.CHAVE_DIARIO) || '[]');
+      d.unshift({ em: new Date().toISOString(), texto: String(texto).slice(0, 300) });
+      localStorage.setItem(this.CHAVE_DIARIO, JSON.stringify(d.slice(0, 15)));
+    } catch (e) {}
+  },
+  diario() { try { return JSON.parse(localStorage.getItem(this.CHAVE_DIARIO) || '[]'); } catch (e) { return []; } },
+  erroDe(e) { return (e && (e.message || e.errorMessage || e.code)) || String(e); },
 
   plugin() {
     const P = window.Capacitor && window.Capacitor.Plugins;
@@ -51,8 +64,12 @@ const Miolo = {
      volta ao anterior em 10 s) e, alguns segundos depois, procura versão nova. */
   async iniciar() {
     const P = this.plugin();
-    if (!P) return;
-    try { await P.notifyAppReady(); } catch (e) {}
+    if (!P) { this.anotar('Peça de atualização ausente neste app (APK anterior à 1.9?)'); return; }
+    try {
+      const r = await P.notifyAppReady();
+      const b = r && r.bundle;
+      this.anotar('Abriu bem: miolo 1.' + this.versao + (b ? ' (pacote ' + (b.id === 'builtin' ? 'de fábrica' : b.version) + ')' : ''));
+    } catch (e) { this.anotar('Erro ao avisar que abriu: ' + this.erroDe(e)); }
     setTimeout(() => this.conferir(false), 4000);
     if (window.Capacitor.Plugins.App) {
       window.Capacitor.Plugins.App.addListener('resume', () => this.conferir(false));
@@ -69,10 +86,10 @@ const Miolo = {
     let lista;
     try {
       const r = await fetch(this.API, { headers: { Accept: 'application/vnd.github+json' } });
-      if (!r.ok) return null;
+      if (!r.ok) { this.anotar('GitHub respondeu ' + r.status + ' ao perguntar as versões'); return null; }
       lista = await r.json();
       localStorage.setItem(this.CHAVE_VISTO, String(Date.now()));
-    } catch (e) { return null; }   // sem internet: tenta na próxima abertura
+    } catch (e) { this.anotar('Sem conseguir falar com o GitHub: ' + this.erroDe(e)); return null; }
 
     const teste = this.recebeTeste();
     let nativo = 0;
@@ -85,25 +102,35 @@ const Miolo = {
       .map(j => ({ j, codigo: this.codigoDe(j.tag_name), zip: (j.assets || []).find(a => a.name === 'miolo.zip') }))
       .filter(x => x.zip && x.codigo > this.versao && this.nativoDe(x.j) <= nativo)
       .sort((a, b) => b.codigo - a.codigo)[0];
-    if (!rel) return null;
+    if (!rel) { this.anotar('Nada mais novo que a 1.' + this.versao + ' para este celular (parte nativa ' + nativo + ', teste ' + (teste ? 'ligado' : 'desligado') + ')'); return null; }
 
-    const nome = String(rel.codigo);
+    const nome = '1.' + rel.codigo;
+    let falhas = {};
+    try { falhas = JSON.parse(localStorage.getItem(this.CHAVE_FALHOU) || '{}'); } catch (e) {}
+    if (!forcar && falhas[nome] && Date.now() - falhas[nome] < 24 * 3600 * 1000) {
+      this.anotar('A ' + nome + ' falhou há menos de um dia; tenta de novo amanhã'); return null;
+    }
     try {
       // Já baixado antes (app fechado no meio)? Reaproveita.
       let pacote = null;
       try {
         const l = await P.list();
-        const mesmo = (l.bundles || []).filter(b => b.version === nome);
-        // Essa versão já falhou ao abrir neste celular: não insiste (espera a próxima).
-        if (mesmo.some(b => b.status === 'error')) return null;
-        pacote = mesmo.find(b => b.status === 'success' || b.status === 'pending') || null;
+        pacote = (l.bundles || []).find(b => b.version === nome && (b.status === 'success' || b.status === 'pending')) || null;
       } catch (e) {}
-      if (!pacote) pacote = await P.download({ version: nome, url: rel.zip.browser_download_url });
+      if (!pacote) {
+        this.anotar('Baixando a ' + nome + '…');
+        pacote = await P.download({ version: nome, url: rel.zip.browser_download_url });
+        this.anotar('Baixou a ' + nome + ' (' + (pacote && pacote.status) + ')');
+      }
       await P.next({ id: pacote.id });   // troca quando o app for para o fundo
-      this.pronto = '1.' + nome;
+      this.anotar('A ' + nome + ' entra quando o app for para o fundo');
+      this.pronto = nome;
       return this.pronto;
     } catch (e) {
-      return null;                       // falhou o download: tenta de novo mais tarde
+      this.anotar('Falhou com a ' + nome + ': ' + this.erroDe(e));
+      falhas[nome] = Date.now();
+      try { localStorage.setItem(this.CHAVE_FALHOU, JSON.stringify(falhas)); } catch (er) {}
+      return null;
     }
   }
 };
