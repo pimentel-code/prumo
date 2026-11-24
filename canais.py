@@ -4,7 +4,7 @@
     python3 canais.py teste   N NATIVO "notas"   → depois do publicar
     python3 canais.py estavel N NATIVO "notas"   → depois do aprovar
 """
-import json, sys
+import hashlib, json, sys, urllib.request
 from pathlib import Path
 
 ARQ = Path(__file__).resolve().parent / 'canais.json'
@@ -13,8 +13,15 @@ BASE = 'https://github.com/pimentel-code/prumo/releases/download/v1.{n}/'
 canal, n, nativo = sys.argv[1], int(sys.argv[2]), int(sys.argv[3])
 notas = (sys.argv[4] if len(sys.argv) > 4 else '').replace('[nativo:%d]' % nativo, '').strip()[:400]
 d = json.loads(ARQ.read_text(encoding='utf-8'))
+# SHA-256 do miolo.zip: a peça de atualização RECUSA baixar sem ele ("Checksum required").
+if canal == 'teste':
+    sha = hashlib.sha256((ARQ.parent / 'miolo.zip').read_bytes()).hexdigest()   # acabou de ser montado
+elif d.get('teste', {}).get('codigo') == n and d['teste'].get('sha256'):
+    sha = d['teste']['sha256']                                                  # aprovando a mesma do teste
+else:
+    sha = hashlib.sha256(urllib.request.urlopen(BASE.format(n=n) + 'miolo.zip', timeout=60).read()).hexdigest()
 d[canal] = {'codigo': n, 'nativo': nativo, 'apk': BASE.format(n=n) + 'Prumo.apk',
-            'miolo': BASE.format(n=n) + 'miolo.zip', 'notas': notas}
+            'miolo': BASE.format(n=n) + 'miolo.zip', 'sha256': sha, 'notas': notas}
 # O teste nunca fica atrás do estável (quem testa recebe o estável também).
 if canal == 'estavel' and d.get('teste', {}).get('codigo', 0) < n:
     d['teste'] = dict(d[canal])

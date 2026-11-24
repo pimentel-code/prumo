@@ -124,7 +124,7 @@ const Miolo = {
     // A mais nova que serve: a estável (ou a de teste, se ligado), com miolo,
     // e cuja parte nativa exigida este celular já tem.
     const rel = [c.estavel, teste ? c.teste : null]
-      .filter(x => x && x.miolo && x.codigo > this.versao && x.nativo <= nativo)
+      .filter(x => x && x.miolo && x.sha256 && x.codigo > this.versao && x.nativo <= nativo)
       .sort((a, b) => b.codigo - a.codigo)[0];
     if (!rel) { this.anotar('Nada mais novo que a 1.' + this.versao + ' para este celular (parte nativa ' + nativo + ', teste ' + (teste ? 'ligado' : 'desligado') + ')'); return null; }
 
@@ -143,7 +143,8 @@ const Miolo = {
       } catch (e) {}
       if (!pacote) {
         this.anotar('Baixando a ' + nome + '…');
-        pacote = await P.download({ version: nome, url: rel.miolo });
+        // checksum (SHA-256 do zip) é OBRIGATÓRIO na peça: sem ele, "Failed to download"
+        pacote = await P.download({ version: nome, url: rel.miolo, checksum: rel.sha256 });
         this.anotar('Baixou a ' + nome + ' (' + (pacote && pacote.status) + ')');
       }
       await P.next({ id: pacote.id });   // troca quando o app for para o fundo

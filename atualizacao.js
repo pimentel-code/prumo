@@ -38,7 +38,8 @@ const Atualizacao = {
       // Lê o canais.json (sem o limite de 60/h da API); reserva: a API. Ver miolo.js.
       const c = await Miolo.lerCanais();
       if (c && c.estavel) {
-        est = c.estavel;
+        // Quem testa vê também a faixa da versão de teste, se ela for mais nova.
+        est = (Miolo.recebeTeste() && c.teste && c.teste.codigo > c.estavel.codigo) ? c.teste : c.estavel;
         try { localStorage.setItem(this.CHAVE, JSON.stringify({ em: Date.now(), est })); } catch (e) {}
       }
     }

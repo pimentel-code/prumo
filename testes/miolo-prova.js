@@ -11,7 +11,9 @@ async function prova(nome, fn) {
 const peca = { baixados: [], proximo: null, pacotes: [],
   async notifyAppReady() { peca.avisou = true; return {}; },
   async list() { return { bundles: peca.pacotes }; },
-  async download(o) { peca.baixados.push(o); const b = { id: 'id' + o.version.replace('1.', ''), version: o.version, status: 'pending' }; peca.pacotes.push(b); return b; },
+  async download(o) {
+    if (!o.checksum) throw new Error('Checksum required');   // igual à peça de verdade
+    peca.baixados.push(o); const b = { id: 'id' + o.version.replace('1.', ''), version: o.version, status: 'pending' }; peca.pacotes.push(b); return b; },
   async next(o) { peca.proximo = o.id; return {}; }
 };
 window.Capacitor.Plugins.CapacitorUpdater = peca;
@@ -23,7 +25,12 @@ const rel = (tag, nativo, extra) => Object.assign({ tag_name: tag, draft: false,
 let lista = [];
 globalThis.fetch = async url => {
   if (/canais\.json/.test(url)) {
-    const c = globalThis.canaisSim;
+    // canais.json montado a partir da lista de releases (como o canais.py faz)
+    const v = j => ({ codigo: Miolo.codigoDe(j.tag_name), nativo: Miolo.nativoDe(j), sha256: 'sha' + j.tag_name,
+      apk: 'https://x/' + j.tag_name + '/Prumo.apk', miolo: 'https://x/' + j.tag_name + '/miolo.zip', notas: '' });
+    const maior = l => l.map(v).sort((a, b) => b.codigo - a.codigo)[0];
+    const c = globalThis.canaisSim || (lista.length && !globalThis.semCanais
+      ? { estavel: maior(lista.filter(j => !j.prerelease)), teste: maior(lista) } : null);
     return c ? { ok: true, status: 200, async json() { return c; } } : { ok: false, status: 404, async json() { return {}; } };
   }
   if (/releases\?/.test(url)) return { ok: true, status: 200, async json() { return lista; } };
@@ -65,7 +72,7 @@ const limpar = () => { peca.baixados = []; peca.proximo = null; peca.pacotes = [
   await prova('…e não tenta de novo no mesmo dia sozinho', async () => {
     localStorage.removeItem(Miolo.CHAVE_VISTO);
     return (await Miolo.conferir(false)) === null && Miolo.diario()[0].texto.includes('amanhã'); });
-  peca.download = async (o) => { peca.baixados.push(o); const b = { id: 'id' + o.version.replace('1.', ''), version: o.version, status: 'pending' }; peca.pacotes.push(b); return b; };
+  peca.download = async (o) => { if (!o.checksum) throw new Error('Checksum required'); peca.baixados.push(o); const b = { id: 'id' + o.version.replace('1.', ''), version: o.version, status: 'pending' }; peca.pacotes.push(b); return b; };
   await prova('…mas tenta na hora se a pessoa tocar em Procurar atualização', async () =>
     (await Miolo.conferir(true)) === '1.10');
 
@@ -89,7 +96,7 @@ const limpar = () => { peca.baixados = []; peca.proximo = null; peca.pacotes = [
   await prova('o nome da versão vai no formato 1.N', () => peca.baixados.length === 0 || /^1\.\d+$/.test(peca.baixados[0].version));
   // canais.json (sem o limite de 60/h da API): é o caminho principal desde a 1.16
   limpar(); Miolo.versao = 9;
-  const canal = (n, nat) => ({ codigo: n, nativo: nat, apk: 'https://x/c' + n + '/Prumo.apk', miolo: 'https://x/c' + n + '/miolo.zip', notas: '' });
+  const canal = (n, nat) => ({ codigo: n, nativo: nat, sha256: 'x' + n, apk: 'https://x/c' + n + '/Prumo.apk', miolo: 'https://x/c' + n + '/miolo.zip', notas: '' });
   globalThis.canaisSim = { estavel: canal(13, 9), teste: canal(15, 9) };
   let usouApi = false; const f0 = globalThis.fetch;
   globalThis.fetch = async u => { if (/api\.github/.test(u)) usouApi = true; return f0(u); };
@@ -104,6 +111,12 @@ const limpar = () => { peca.baixados = []; peca.proximo = null; peca.pacotes = [
   await prova('canais.json: parte nativa nova mostra a faixa "Versão nova"', async () => {
     const n = await Atualizacao.conferir(true); return !!n && n.versao === '1.16' && n.url === 'https://x/c16/Prumo.apk'; });
   globalThis.fetch = f0; globalThis.canaisSim = null;
+  limpar(); lista = [rel('v1.10', 9)]; globalThis.semCanais = true;
+  await prova('sem canais.json (só a API de reserva, sem SHA-256): não tenta baixar miolo', async () =>
+    (await Miolo.conferir(true)) === null && peca.baixados.length === 0);
+  globalThis.semCanais = false;
+  await prova('o download vai com o SHA-256 (a peça recusa sem ele)', async () => {
+    limpar(); return (await Miolo.conferir(true)) === '1.10' && peca.baixados[0].checksum === 'shav1.10'; });
   limpar();
   localStorage.setItem(Miolo.CHAVE_VISTO, String(Date.now()));
   await prova('não pergunta ao GitHub de novo antes de 30 minutos', async () =>
