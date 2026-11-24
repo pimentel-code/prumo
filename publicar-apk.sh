@@ -28,7 +28,9 @@ sed -i "s/^codigo=.*/codigo=$novo/" android/versao.properties
 versao="1.$novo"
 
 # A parte nativa mudou desde a última versão publicada?
-ultima=$(git describe --tags --abbrev=0 2>/dev/null || true)
+# As etiquetas (v1.N) nascem no GitHub, pelo gh release: traz antes de comparar.
+git fetch -q --tags origin 2>/dev/null || true
+ultima=$(git tag -l 'v1.*' --sort=-v:refname | head -1)
 nativo=$(cat android/nativo-minimo.txt 2>/dev/null || echo "$novo")
 if [ -z "$ultima" ] || ! git diff --quiet "$ultima" -- android capacitor.config.json package.json package-lock.json \
      ':!android/versao.properties' ':!android/nativo-minimo.txt' ':!android/app/src/main/assets'; then

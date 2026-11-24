@@ -44,7 +44,7 @@ const Esfera = {
     div.className = 'esfera-fundo';
     div.innerHTML = `<div class="esfera-cartao" role="dialog" aria-label="Diga o que precisa">
         <canvas class="esfera-tela" aria-hidden="true"></canvas>
-        <div class="esfera-texto" id="esferaTexto">${voz ? 'Toque no microfone e<br>me diga o que precisa' : 'Me diga o que precisa'}</div>
+        <div class="esfera-texto" id="esferaTexto">${voz ? 'Oi! Toque no microfone e<br>me diga o que precisa' : 'Oi! Me diga o que precisa'}</div>
         <div class="esfera-ouvido" id="esferaOuvido" hidden></div>
         <div class="esfera-acoes" id="esferaAcoes" hidden>
           <button type="button" class="esfera-bt-texto" data-esfera="corrigir">Corrigir</button>
