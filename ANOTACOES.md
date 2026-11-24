@@ -321,3 +321,4 @@ O site (iPhone) continua igual, com o "Pôr no calendário".
 - NÃO testado em aparelho: a troca real do miolo e se os dados ficam (devem: mesma origem). Teste planejado:
   ele instala a 1.9, liga "Versões de teste", eu publico uma 1.10 só de miolo e ele confere.
 - 1.11 (TESTE, 23/11): Ajustes refeitos no padrão Android/iPhone (tela cheia, grupos em cartão, ícones coloridos SVG, chaves, valor à direita, subpáginas avisar-antes/palavras/alarme/privacidade; App.subAjustes + voltar). Defeito pego no print: o clique passava o Event como 'sub' → painelAjustes ignora não-string.
+- 1.12 (TESTE, 23/11, NATIVA): verde antigo que sobrou: windowSplashScreenBackground (abertura do Android 12+), AlarmeActivity (tela do alarme → degradê), AlarmeService/atalhos/lightColor, QR do convite (svg+png escuros). Aviso de backup saiu da tela principal (só nos Ajustes). Busca que achou: grep -i das cores antigas, incluindo 0xFF… do Java.
