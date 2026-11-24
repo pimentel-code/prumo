@@ -287,3 +287,19 @@ O site (iPhone) continua igual, com o "Pôr no calendário".
   widget) — senão o dinheiro contaria duas vezes. Parcelas: somarMeses(inicio, k + 1).
 - Visual: valor cinza "300,00 em 3x" + "🛍️ compra em 3x · 1ª parcela em dezembro".
 - Excluir pelo Editar apaga a compra e as parcelas. Compras antigas (antes da 1.5) ficam como estavam.
+
+## 23/11/2026 — esfera ao abrir + visual escuro em degradê (v1.7, TESTE)
+- Pedido dele a partir de um print do Dribbble: ao abrir, um cartão com esfera de partículas
+  "como uma IA esperando". Decisões dele: aparece toda vez (chave em Ajustes → "Esfera ao abrir"),
+  microfone espera o toque, e o app inteiro + a esfera nas cores da imagem.
+- esfera.js: canvas com 3200 pontos (espiral de Fibonacci), degradê azul→roxo→rosa→laranja, pulsa com
+  o volume da voz. Abre: ao iniciar, ao voltar após 10 min fora, no 🎤 da caixa e no "Falar" do widget.
+  Mostra "o que entendeu" → Guardar (salvarRascunho) / Corrigir (fecha e deixa a confirmação completa);
+  ✕ descarta. Por dentro é o interpretador de sempre (sem IA).
+- Voz: método nativo novo `escutar` (SpeechRecognizer + RECORD_AUDIO, eventos vozVolume/vozParcial,
+  `pararEscuta`); se falhar, cai na janelinha antiga (`ouvir`). Site: webkitSpeechRecognition se houver.
+- Visual: sempre escuro (sem tema claro), --degrade/--degrade-botao no estilo.css; widget escuro com botão
+  em degradê. Ícone e splash continuam verde-azulados (não mexi).
+- NÃO testado no celular: permissão do microfone, esfera pulsando com a voz, widget novo.
+- Backup do anterior em backups/antes-esfera-2026-11-23/.
+- A prova "revisão do que ficou para trás" falha à noite (data em UTC no teste) — já falhava antes.
