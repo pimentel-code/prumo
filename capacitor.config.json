@@ -9,6 +9,16 @@
     "LocalNotifications": {
       "smallIcon": "ic_stat_prumo",
       "iconColor": "#ec4899"
+    },
+    "CapacitorUpdater": {
+      "autoUpdate": false,
+      "statsUrl": "",
+      "updateUrl": "",
+      "channelUrl": "",
+      "appReadyTimeout": 10000,
+      "autoDeleteFailed": true,
+      "autoDeletePrevious": true,
+      "resetWhenUpdate": true
     }
   }
 }

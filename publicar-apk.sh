@@ -5,8 +5,13 @@
 #
 #   ./publicar-apk.sh "o que mudou"      (ou: prumo atualizar "o que mudou")
 #
-# Faz, nesta ordem: provas rápidas → soma 1 na versão → monta o APK →
-# guarda tudo no git e envia (ramo main) → cria a "pré-release" vX com o Prumo.apk.
+# Faz, nesta ordem: provas rápidas → soma 1 na versão → monta o APK e o miolo.zip →
+# guarda tudo no git e envia (ramo main) → cria a "pré-release" vX com os dois.
+#
+# Miolo silencioso (desde a 1.9): o miolo.zip (telas, cores, regras) é baixado
+# sozinho pelos celulares, sem aviso. Só quando a parte NATIVA muda (pasta android/,
+# capacitor.config.json, plugins do package.json) a release ganha [nativo:N] novo e
+# os celulares mostram a faixa "Versão nova" para instalar o APK.
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -22,15 +27,41 @@ novo=$((atual + 1))
 sed -i "s/^codigo=.*/codigo=$novo/" android/versao.properties
 versao="1.$novo"
 
+# A parte nativa mudou desde a última versão publicada?
+ultima=$(git describe --tags --abbrev=0 2>/dev/null || true)
+nativo=$(cat android/nativo-minimo.txt 2>/dev/null || echo "$novo")
+if [ -z "$ultima" ] || ! git diff --quiet "$ultima" -- android capacitor.config.json package.json package-lock.json \
+     ':!android/versao.properties' ':!android/nativo-minimo.txt' ':!android/app/src/main/assets'; then
+  nativo=$novo
+fi
+echo "$nativo" > android/nativo-minimo.txt
+printf '/* Gerado pelo publicar-apk.sh: o número da versão deste miolo (o N de 1.N). */\nconst PRUMO_MIOLO = %s;\n' "$novo" > versao-miolo.js
+
 ./montar-apk.sh
+rm -f miolo.zip
+python3 -c "
+import zipfile, os
+with zipfile.ZipFile('miolo.zip', 'w', zipfile.ZIP_DEFLATED) as z:
+    for raiz, _, arqs in os.walk('www'):
+        for a in arqs:
+            c = os.path.join(raiz, a); z.write(c, os.path.relpath(c, 'www'))
+"
+if [ "$nativo" = "$novo" ]; then
+  tipo="com parte NATIVA nova: os celulares mostram \"Versão nova\" para instalar o APK"
+else
+  tipo="só o miolo: os celulares se atualizam sozinhos, sem aviso"
+fi
 cp -f Prumo.apk ~/Downloads/Prumo.apk 2>/dev/null || true
 
 nota="${1:-Versão $versao do Prumo}"
 git add -A
 git commit -qm "Prumo $versao: $nota" || true
 git push -q
-gh release create "v$versao" Prumo.apk --prerelease --title "Prumo $versao (teste)" --notes "$nota"
+gh release create "v$versao" Prumo.apk miolo.zip --prerelease --title "Prumo $versao (teste)" --notes "$nota
+
+[nativo:$nativo]"
 
 echo
-echo "Publicado para TESTE: Prumo $versao. Só o seu Obtainium recebe."
+echo "Publicado para TESTE: Prumo $versao ($tipo)."
+echo "Recebem: o seu Obtainium e o Prumo com \"Versões de teste\" ligado nos Ajustes."
 echo "Gostou? Libere para todos com:  prumo aprovar"

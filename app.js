@@ -875,8 +875,10 @@ function avisosAjustesHTML() {
       <div class="desc">Toca um aviso de teste daqui a 10 segundos.</div></div></button>
 
     <h3>Versão do app</h3>
-    <button class="opcao" data-acao="procurar-atualizacao"><span class="op-icone">✨</span><div><div>Procurar atualização${Atualizacao.instalado ? ' · você tem a ' + Atualizacao.versaoInstalada() : ''}</div>
-      <div class="desc">O Prumo também confere sozinho ao abrir. Só pergunta o número da versão; seus dados não saem do celular.</div></div></button>
+    <button class="opcao" data-acao="procurar-atualizacao"><span class="op-icone">✨</span><div><div>Procurar atualização · você tem a 1.${Math.max(Miolo.versao, Atualizacao.instalado || 0)}</div>
+      <div class="desc">${Miolo.pronto ? 'A ' + Miolo.pronto + ' já foi baixada: entra na próxima vez que você abrir o Prumo.' : 'O Prumo se atualiza sozinho, sem você ver. Só pergunta o número da versão; seus dados não saem do celular.'}</div></div></button>
+    <button class="opcao" data-acao="miolo-teste"><span class="op-icone">🧪</span><div><div>Versões de teste: <strong>${Miolo.recebeTeste() ? 'recebendo' : 'não recebe'}</strong></div>
+      <div class="desc">Para quem testa o Prumo antes dos outros. Deixe desligado se não sabe o que é.</div></div></button>
 
     <h3>Alarme</h3>
     <p>Diga "alarme", "alarma", "despertar" ou "me acorda" (ex.: <em>alarme 6h</em> ou <em>alarma daqui a 40 minutos</em>) e o Prumo toca como despertador: som do alarme do celular, vibração e a tela do alarme, com o celular bloqueado ou não, até você tocar em Parar ou Adiar. Também dá para ligar em qualquer compromisso, no Editar.</p>
@@ -997,12 +999,16 @@ document.addEventListener('click', evento => {
   if (acao === 'revisao') return abrirRevisao();
   if (acao === 'atualizar-app') return Atualizacao.instalar();
   if (acao === 'dispensar-atualizacao') { Atualizacao.dispensada = true; return render(); }
+  if (acao === 'miolo-teste') { Miolo.ligarTeste(!Miolo.recebeTeste()); return painelAjustes(); }
   if (acao === 'procurar-atualizacao') {
     alvo.disabled = true; alvo.querySelector('.desc').textContent = 'Procurando…';
-    return Atualizacao.conferir(true).then(n => {
+    return Atualizacao.conferir(true).then(async n => {
       Atualizacao.dispensada = false;
       if (n) { fecharPainel(); App.busca = null; return render(); }
-      alvo.querySelector('.desc').textContent = 'Você já está com a versão mais nova' + (Atualizacao.instalado ? ' (' + Atualizacao.versaoInstalada() + ').' : '.');
+      const m = await Miolo.conferir(true);
+      alvo.querySelector('.desc').textContent = m || Miolo.pronto
+        ? 'A ' + (m || Miolo.pronto) + ' foi baixada: entra na próxima vez que você abrir o Prumo.'
+        : 'Você já está com a versão mais nova (1.' + Math.max(Miolo.versao, Atualizacao.instalado || 0) + ').';
       alvo.disabled = false;
     });
   }
@@ -1212,6 +1218,7 @@ function iniciar() {
   }
 
   if (Avisos.nativo) {
+    Miolo.iniciar();
     Avisos.preparar().then(() => renderConfirma());
     // Versão nova liberada? Confere ao abrir e ao voltar para o app.
     const conferirVersao = () => Atualizacao.conferir().then(n => { if (n) render(); });

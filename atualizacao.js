@@ -3,7 +3,11 @@
    Pergunta ao GitHub só "qual é a última versão liberada?" (a release
    "latest", que nunca é uma versão de teste). Nenhum dado da pessoa sai do
    celular. Sem internet, simplesmente não avisa. A versão nova aparece numa
-   faixa no alto; "Atualizar" baixa o APK e abre o instalador do Android. */
+   faixa no alto; "Atualizar" baixa o APK e abre o instalador do Android.
+
+   Desde a 1.9 a faixa só aparece quando a versão nova mexe na parte NATIVA
+   (marca "[nativo:N]" na release). Mudança só de telas/regras chega sozinha,
+   sem aviso nenhum, pelo miolo.js. */
 
 const Atualizacao = {
   API: 'https://api.github.com/repos/pimentel-code/prumo/releases/latest',
@@ -36,13 +40,17 @@ const Atualizacao = {
         if (r.ok || r.status === 404) {
           const j = r.ok ? await r.json() : {};
           const apk = (j.assets || []).find(a => /\.apk$/i.test(a.name));
-          rel = apk ? { tag: j.tag_name, url: apk.browser_download_url, notas: String(j.body || '').slice(0, 400) } : null;
+          rel = apk ? { tag: j.tag_name, url: apk.browser_download_url, body: String(j.body || ''),
+                        notas: String(j.body || '').replace(/\[nativo:\d+\]/g, '').trim().slice(0, 400) } : null;
           localStorage.setItem(this.CHAVE, JSON.stringify({ em: Date.now(), rel }));
         }
       } catch (e) { /* sem internet: fica com o que sabia */ }
     }
     const codigo = rel ? this.codigoDe(rel.tag) : 0;
-    this.nova = (this.instalado && codigo > this.instalado)
+    // Só pede o APK se a parte nativa exigida for mais nova que a instalada.
+    const m = rel && /\[nativo:(\d+)\]/.exec(rel.body || '');
+    const nativo = m ? +m[1] : codigo;
+    this.nova = (this.instalado && nativo > this.instalado)
       ? { versao: '1.' + codigo, codigo, url: rel.url, notas: rel.notas }
       : null;
     return this.nova;

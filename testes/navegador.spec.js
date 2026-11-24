@@ -461,7 +461,7 @@ test('botão "Repete todo mês" transforma um gasto em conta fixa', async ({ pag
 
 test('revisão do que ficou para trás: uma de cada vez', async ({ page }) => {
   await page.evaluate(() => {
-    const d = n => { const x = new Date(); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+    const d = n => { const x = new Date(); x.setDate(x.getDate() + n); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); };
     const t = (titulo, n) => ({ id: 't' + titulo, tipo: 'tarefa', titulo, data: d(n), hora: null, feito: false, texto: '', criadoEm: '' });
     localStorage.setItem('prumo.dados.v1', JSON.stringify({ itens: [t('Ligar pro banco', -3), t('Mandar e-mail', -1), t('Pagar boleto', -2)], aprendidas: {}, ultimoBackup: new Date().toISOString() }));
   });
