@@ -1303,13 +1303,8 @@ function iniciar() {
     bt.addEventListener('click', () => Esfera.abrir({ ouvir: true }));
   }
 
-  if (Dados.itens().length && Dados.diasSemBackup() >= 21) {
-    setTimeout(() => {
-      const barra = document.getElementById('conteudo');
-      barra.insertAdjacentHTML('afterbegin',
-        '<div class="aviso">Faz tempo que você não faz backup. Ajustes → Fazer backup.</div>');
-    }, 800);
-  }
+  // O lembrete de backup não aparece mais na tela principal (pedido dele, 23/11/2026):
+  // fica só nos Ajustes, em laranja, na linha "Fazer backup".
 
   if (Avisos.nativo) {
     Miolo.iniciar();

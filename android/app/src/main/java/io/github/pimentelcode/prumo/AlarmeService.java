@@ -104,7 +104,7 @@ public class AlarmeService extends Service {
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
         return new NotificationCompat.Builder(this, CANAL)
             .setSmallIcon(R.drawable.ic_stat_prumo)
-            .setColor(0xFF0F766E)
+            .setColor(0xFFEC4899)
             .setContentTitle("⏰ " + titulo)
             .setContentText(texto.isEmpty() ? "Alarme do Prumo" : texto)
             .setCategory(NotificationCompat.CATEGORY_ALARM)

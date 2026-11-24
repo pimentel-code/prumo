@@ -184,7 +184,7 @@ const Avisos = {
       await LN.createChannel({
         id: CANAL, name: 'Avisos do Prumo',
         description: 'Compromissos e tarefas na hora marcada',
-        importance: 5, visibility: 1, vibration: true, lights: true, lightColor: '#0f766e'
+        importance: 5, visibility: 1, vibration: true, lights: true, lightColor: '#ec4899'
       });
       await LN.registerActionTypes({ types: [{
         id: 'prumo-aviso',

@@ -34,8 +34,9 @@ public class AlarmeActivity extends Activity {
         else getWindow().addFlags(WindowManager.LayoutParams.FLAG_SHOW_WHEN_LOCKED
                 | WindowManager.LayoutParams.FLAG_TURN_SCREEN_ON);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-        getWindow().setStatusBarColor(0xFF0F766E);
-        getWindow().setNavigationBarColor(0xFF0F766E);
+        // Visual "esfera" (23/11/2026): o mesmo degradê do ícone, de cima (azul) a baixo (laranja).
+        getWindow().setStatusBarColor(0xFF5A74F8);
+        getWindow().setNavigationBarColor(0xFFF98A4E);
 
         String titulo = getIntent().getStringExtra("titulo");
         String texto = getIntent().getStringExtra("texto");
@@ -43,7 +44,8 @@ public class AlarmeActivity extends Activity {
         LinearLayout tela = new LinearLayout(this);
         tela.setOrientation(LinearLayout.VERTICAL);
         tela.setGravity(Gravity.CENTER);
-        tela.setBackgroundColor(0xFF0F766E);
+        tela.setBackground(new GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
+            new int[] { 0xFF5A74F8, 0xFF8B5CF6, 0xFFEC4899, 0xFFF98A4E }));
         int m = dp(28);
         tela.setPadding(m, m, m, m);
 
@@ -56,7 +58,7 @@ public class AlarmeActivity extends Activity {
         lp.topMargin = dp(18);
         Button adiar = botao("Adiar 10 min", Color.TRANSPARENT, Color.WHITE);
         adiar.setOnClickListener(v -> mandar(AlarmeService.ADIAR));
-        Button parar = botao("Parar", Color.WHITE, 0xFF0F766E);
+        Button parar = botao("Parar", Color.WHITE, 0xFFB83A8E);
         parar.setOnClickListener(v -> mandar(AlarmeService.PARAR));
         LinearLayout.LayoutParams lpTopo = new LinearLayout.LayoutParams(lp);
         lpTopo.topMargin = dp(56);
