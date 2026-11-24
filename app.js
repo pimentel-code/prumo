@@ -530,6 +530,8 @@ function telaHoje() {
   const contas = fixasDoMes(agora.getFullYear(), agora.getMonth()).filter(x => !x.pago && x.venc <= h);
 
   if (!atrasados.length && !deHoje.length && !semPrazo.length && !gastosHoje.length && !contas.length) {
+    // Com a esfera na tela, o dia vazio é só ela, no centro (pedido dele, 23/11/2026).
+    if (Esfera.ligada()) return '';
     if (!itens.length) {
       return vazio('Tudo no prumo', 'Escreva ou fale na caixa lá em cima, do jeito que você falaria com alguém. Toque num exemplo para experimentar:', '🧭', true);
     }
@@ -1081,6 +1083,8 @@ function render() {
   else tela = telaTarefas();
   // Faixa "Versão nova do Prumo" (só no app Android), no alto de qualquer aba.
   conteudo.innerHTML = (App.busca === null ? Atualizacao.bannerHTML() : '') + tela;
+  if (document.body && document.body.classList)
+    document.body.classList.toggle('hoje-vazio', App.busca === null && App.aba === 'hoje' && !conteudo.innerHTML.trim());
 
   document.querySelectorAll('.aba').forEach(b =>
     b.classList.toggle('ativa', App.busca === null && b.dataset.aba === App.aba));
