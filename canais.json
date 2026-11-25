@@ -9,11 +9,11 @@
     "notas": "Lembrete repetido: 'me lembre a cada 20 minutos' manda notificação de 20 em 20 min (por 3 horas, ou 'até as 18h' / 'por 2 horas' / 'o dia todo'); botões Parar e Feito; alarme só se pedir"
   },
   "teste": {
-    "codigo": 23,
+    "codigo": 24,
     "nativo": 18,
-    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.23/Prumo.apk",
-    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.23/miolo.zip",
-    "sha256": "21e82112cb85600b81d76332c48ee38efee5cc397e54caacb11c78a84cd2b4bc",
-    "notas": "Ajuda (?) atualizada e animada: telas novas da esfera, dos lembretes que repetem e da atualização sozinha; quem já viu a apresentação recebe só as Novidades, uma vez"
+    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.24/Prumo.apk",
+    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.24/miolo.zip",
+    "sha256": "ca09343dd092b51d5166475914a2de1be71220fe829008e58176a352bad7ad50",
+    "notas": "Ajuda: tela da esfera só com 'Toque na esfera e fale o que deseja'"
   }
 }

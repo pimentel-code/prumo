@@ -77,12 +77,10 @@ const Tutorial = {
       },
       {
         id: 'esfera', nova: 21,
-        arte: `<div class="tut-esfera"><canvas aria-hidden="true"></canvas>
-                 <div class="tut-fala" id="tutFala"></div></div>`,
-        titulo: 'A tela Hoje é a esfera',
-        texto: (voz ? '<strong>Toque na esfera</strong> e fale o que precisa: ela pulsa enquanto ouve.'
-                    : 'A esfera fica na tela inicial: escreva na caixa lá em cima o que precisa.') +
-               ' Não há listas aqui: gastos ficam em <strong>Dinheiro</strong>, compromissos na <strong>Agenda</strong> e tarefas em <strong>Tarefas</strong>.'
+        // Só a esfera e uma frase (pedido dele, 24/11/2026).
+        arte: `<div class="tut-esfera"><canvas aria-hidden="true"></canvas></div>`,
+        titulo: 'Toque na esfera e fale o que deseja',
+        texto: ''
       },
       {
         id: 'digitar',
@@ -216,7 +214,7 @@ const Tutorial = {
       <div class="tut-trilho" id="tutTrilho">
         ${telas.map((t, n) => `<section class="tut-slide" data-n="${n}" data-id="${t.id || ''}">${t.nova && mostrarNovo && t.nova > vistas ? '<span class="tut-selo-novo">Novo</span>' : ''}
             <div class="tut-arte">${t.arte}</div>
-            <h2>${t.titulo}</h2><p>${t.texto}</p>
+            <h2>${t.titulo}</h2>${t.texto ? `<p>${t.texto}</p>` : ''}
           </section>`).join('')}
       </div>
       <div class="tut-rodape">

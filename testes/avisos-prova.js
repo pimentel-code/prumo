@@ -197,7 +197,7 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
   await prova('widget conta o que está atrasado', () => widget.atrasados >= 1);
 
   await prova('tutorial no app Android tem widget, lembrete repetido e atualização (12 telas)', () =>
-    Tutorial.telas().length === 12 && ['Anote sem abrir o app', 'Lembretes que repetem', 'Sempre atualizado', 'A tela Hoje é a esfera']
+    Tutorial.telas().length === 12 && ['Anote sem abrir o app', 'Lembretes que repetem', 'Sempre atualizado', 'Toque na esfera e fale o que deseja']
       .every(t => Tutorial.telas().some(x => x.titulo === t)));
   await prova('novidades: quem viu antes recebe as 3 telas novas; depois de ver, nenhuma', () => {
     localStorage.setItem(Tutorial.CHAVE, '1'); localStorage.removeItem(Tutorial.CHAVE_NOVIDADES);
