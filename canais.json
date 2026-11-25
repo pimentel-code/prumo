@@ -9,11 +9,11 @@
     "notas": "Lembrete repetido: 'me lembre a cada 20 minutos' manda notificação de 20 em 20 min (por 3 horas, ou 'até as 18h' / 'por 2 horas' / 'o dia todo'); botões Parar e Feito; alarme só se pedir"
   },
   "teste": {
-    "codigo": 21,
+    "codigo": 22,
     "nativo": 18,
-    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.21/Prumo.apk",
-    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.21/miolo.zip",
-    "sha256": "4e2ecb36f94591ec93b62dbd4c761e938fb152bec3b0fb509ff8a7c88a769f47",
-    "notas": "Tela Hoje só com a esfera: gastos ficam em Dinheiro, compromissos na Agenda, tarefas e atrasados em Tarefas (o aviso 'ficou para trás' foi para o alto de Tarefas)"
+    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.22/Prumo.apk",
+    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.22/miolo.zip",
+    "sha256": "29d1459d9cf1e1be236519c0ae9f8eaf76f86a22e213240d3226742fc7f66c65",
+    "notas": "Atualização entra de verdade: ao abrir, se a versão nova já foi baixada, o Prumo troca na hora; botão 'Atualizar agora' nos Ajustes"
   }
 }

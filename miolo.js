@@ -9,6 +9,12 @@
    o miolo.zip em segundo plano e deixa marcado para a próxima vez. A troca
    acontece quando o app vai para o fundo (ou fecha) — quem abre de novo já vê a
    versão nova. Se o miolo novo não abrir direito, a peça volta sozinha ao anterior.
+
+   24/11/2026: a troca "ao ir para o fundo" se perdia quando o app era fechado
+   (arrastado para fora) ou o Android o encerrava antes de terminar — baixava,
+   mas abria sempre na versão velha. Agora, AO ABRIR, se já houver versão nova
+   baixada esperando, a troca é feita na hora (aplicarPendente), e nos Ajustes
+   há "Atualizar agora".
    Os dados (localStorage) não são tocados: continuam no mesmo lugar.
 
    Peça usada: @capgo/capacitor-updater em modo manual, sem a nuvem da Capgo
@@ -27,6 +33,7 @@ const Miolo = {
   pronto: null,                         // versão já baixada esperando a troca
   CHAVE_DIARIO: 'prumo.miolo.diario',   // últimas etapas, para o Diagnóstico nos Ajustes
   CHAVE_FALHOU: 'prumo.miolo.falhou',   // { "1.13": quando falhou } — tenta de novo 1x por dia
+  CHAVE_TROCA: 'prumo.miolo.troca',     // { nome, em } da última troca na hora — evita abrir e recarregar sem parar
 
   /* Anota uma etapa no diário (as 15 últimas). Aparece em Ajustes → Diagnóstico. */
   anotar(texto) {
@@ -100,9 +107,42 @@ const Miolo = {
       const b = r && r.bundle;
       this.anotar('Abriu bem: miolo 1.' + this.versao + (b ? ' (pacote ' + (b.id === 'builtin' ? 'de fábrica' : b.version) + ')' : ''));
     } catch (e) { this.anotar('Erro ao avisar que abriu: ' + this.erroDe(e)); }
+    if (await this.aplicarPendente()) return;      // trocou: o app recarrega na versão nova
     setTimeout(() => this.conferir(false), 4000);
     if (window.Capacitor.Plugins.App) {
       window.Capacitor.Plugins.App.addListener('resume', () => this.conferir(false));
+    }
+  },
+
+  /* Versão mais nova que esta já baixada e esperando? Troca agora (o app recarrega).
+     Devolve true se mandou trocar. */
+  async aplicarPendente() {
+    const P = this.plugin();
+    if (!P || !P.set) return false;
+    let pacote = null;
+    try {
+      const l = await P.list();
+      pacote = (l.bundles || [])
+        .filter(b => (b.status === 'success' || b.status === 'pending') && this.codigoDe(b.version) > this.versao)
+        .sort((a, b) => this.codigoDe(b.version) - this.codigoDe(a.version))[0] || null;
+    } catch (e) { return false; }
+    if (!pacote) return false;
+    // Trava: se já mandou trocar para esta mesma versão há menos de 5 min e continua
+    // na velha, o pacote não está abrindo — não insiste (senão recarrega sem parar).
+    let ultima = {};
+    try { ultima = JSON.parse(localStorage.getItem(this.CHAVE_TROCA) || '{}'); } catch (e) {}
+    if (ultima.nome === pacote.version && Date.now() - ultima.em < 5 * 60000) {
+      this.anotar('A ' + pacote.version + ' já foi tentada agora há pouco e não entrou; espera a próxima abertura');
+      return false;
+    }
+    try {
+      localStorage.setItem(this.CHAVE_TROCA, JSON.stringify({ nome: pacote.version, em: Date.now() }));
+      this.anotar('Trocando agora para a ' + pacote.version + ' (já estava baixada)');
+      await P.set({ id: pacote.id });             // recarrega o app na versão nova
+      return true;
+    } catch (e) {
+      this.anotar('Não conseguiu trocar para a ' + pacote.version + ': ' + this.erroDe(e));
+      return false;
     }
   },
 

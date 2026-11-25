@@ -980,7 +980,9 @@ function ajustesHTML() {
   if (nativo) {
     h += grupoAj('Atualização', [
       linhaAj({ acao: 'procurar-atualizacao', icone: 'atualizar', cor: 'verde', titulo: 'Procurar atualização',
-                sub: Miolo.pronto ? 'A ' + Miolo.pronto + ' entra na próxima vez que abrir' : 'O Prumo se atualiza sozinho', valor: versaoApp() }),
+                sub: Miolo.pronto ? 'A ' + Miolo.pronto + ' já foi baixada' : 'O Prumo se atualiza sozinho', valor: versaoApp() }),
+      Miolo.pronto && linhaAj({ acao: 'atualizar-agora', icone: 'atualizar', cor: 'verde', titulo: 'Atualizar agora para a ' + Miolo.pronto,
+                sub: 'O Prumo recarrega em um segundo; seus dados ficam' }),
       linhaAj({ acao: 'miolo-teste', icone: 'teste', cor: 'cinza', titulo: 'Versões de teste',
                 sub: 'Só para quem testa antes dos outros', chave: Miolo.recebeTeste() }),
       linhaAj({ acao: 'ajustes-sub', dados: ' data-sub="diagnostico"', icone: 'info', cor: 'cinza', titulo: 'Diagnóstico da atualização' })
@@ -1154,6 +1156,13 @@ document.addEventListener('click', evento => {
   if (acao === 'revisao') return abrirRevisao();
   if (acao === 'atualizar-app') return Atualizacao.instalar();
   if (acao === 'dispensar-atualizacao') { Atualizacao.dispensada = true; return render(); }
+  if (acao === 'atualizar-agora') {
+    alvo.disabled = true; alvo.querySelector('.desc').textContent = 'Atualizando…';
+    localStorage.removeItem(Miolo.CHAVE_TROCA);
+    return Miolo.aplicarPendente().then(ok => {
+      if (!ok) { alvo.querySelector('.desc').textContent = 'Não deu para trocar agora: feche e abra o Prumo.'; alvo.disabled = false; }
+    });
+  }
   if (acao === 'miolo-teste') { Miolo.ligarTeste(!Miolo.recebeTeste()); return painelAjustes(); }
   if (acao === 'procurar-atualizacao') {
     alvo.disabled = true; alvo.querySelector('.desc').textContent = 'Procurando…';
@@ -1161,9 +1170,8 @@ document.addEventListener('click', evento => {
       Atualizacao.dispensada = false;
       if (n) { fecharPainel(); App.busca = null; return render(); }
       const m = await Miolo.conferir(true);
-      alvo.querySelector('.desc').textContent = m || Miolo.pronto
-        ? 'A ' + (m || Miolo.pronto) + ' foi baixada: entra na próxima vez que você abrir o Prumo.'
-        : 'Você já está com a versão mais nova (1.' + Math.max(Miolo.versao, Atualizacao.instalado || 0) + ').';
+      if (m || Miolo.pronto) return painelAjustes();   // aparece o "Atualizar agora"
+      alvo.querySelector('.desc').textContent = 'Você já está com a versão mais nova (1.' + Math.max(Miolo.versao, Atualizacao.instalado || 0) + ').';
       alvo.disabled = false;
     });
   }

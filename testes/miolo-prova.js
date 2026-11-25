@@ -14,7 +14,8 @@ const peca = { baixados: [], proximo: null, pacotes: [],
   async download(o) {
     if (!o.checksum) throw new Error('Checksum required');   // igual à peça de verdade
     peca.baixados.push(o); const b = { id: 'id' + o.version.replace('1.', ''), version: o.version, status: 'pending' }; peca.pacotes.push(b); return b; },
-  async next(o) { peca.proximo = o.id; return {}; }
+  async next(o) { peca.proximo = o.id; return {}; },
+  async set(o) { peca.trocou = o.id; return {}; }
 };
 window.Capacitor.Plugins.CapacitorUpdater = peca;
 
@@ -121,6 +122,19 @@ const limpar = () => { peca.baixados = []; peca.proximo = null; peca.pacotes = [
   localStorage.setItem(Miolo.CHAVE_VISTO, String(Date.now()));
   await prova('não pergunta ao GitHub de novo antes de 30 minutos', async () =>
     (await Miolo.conferir(false)) === null && peca.baixados.length === 0);
+
+  // ---- troca na hora ao abrir (24/11: "baixa, mas abre sempre na versão velha") ----
+  limpar(); Miolo.versao = 9; peca.trocou = null; localStorage.removeItem(Miolo.CHAVE_TROCA);
+  peca.pacotes = [{ id: 'id8', version: '1.8', status: 'success' }, { id: 'id10', version: '1.10', status: 'pending' }];
+  await prova('ao abrir com a 1.10 já baixada, troca na hora para ela', async () =>
+    (await Miolo.aplicarPendente()) === true && peca.trocou === 'id10');
+  peca.trocou = null;
+  await prova('não insiste se a mesma troca acabou de ser tentada (sem recarregar sem parar)', async () =>
+    (await Miolo.aplicarPendente()) === false && peca.trocou === null);
+  localStorage.removeItem(Miolo.CHAVE_TROCA);
+  peca.pacotes = [{ id: 'id8', version: '1.8', status: 'success' }, { id: 'id10', version: '1.10', status: 'error' }];
+  await prova('pacote velho ou com erro não é trocado', async () =>
+    (await Miolo.aplicarPendente()) === false && peca.trocou === null);
 
   print('');
   print(falhas ? falhas + ' PROBLEMA(S)' : 'tudo passou');
