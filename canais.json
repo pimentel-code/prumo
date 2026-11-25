@@ -1,12 +1,12 @@
 {
   "_leia": "Versões do Prumo lidas pelo app (sem usar a API do GitHub, que tem limite de 60/h). Gerado pelo publicar-apk.sh (teste) e aprovar-apk.sh (estavel).",
   "estavel": {
-    "codigo": 19,
+    "codigo": 20,
     "nativo": 18,
-    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.19/Prumo.apk",
-    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.19/miolo.zip",
-    "sha256": "4c39855b33a60e3b155ea8c588c5e8b99e90ae77b41ee9ab8b0a4f24155cde3c",
-    "notas": "Prova da atualização silenciosa com SHA-256 (só o número da versão muda)."
+    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.20/Prumo.apk",
+    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.20/miolo.zip",
+    "sha256": "bd6db04c705e1c42d135b754f8f944ac1e2c3e8a1971307d84dbdad76447440f",
+    "notas": "Lembrete repetido: 'me lembre a cada 20 minutos' manda notificação de 20 em 20 min (por 3 horas, ou 'até as 18h' / 'por 2 horas' / 'o dia todo'); botões Parar e Feito; alarme só se pedir"
   },
   "teste": {
     "codigo": 20,
