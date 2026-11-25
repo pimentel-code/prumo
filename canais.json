@@ -9,11 +9,11 @@
     "notas": "Lembrete repetido: 'me lembre a cada 20 minutos' manda notificação de 20 em 20 min (por 3 horas, ou 'até as 18h' / 'por 2 horas' / 'o dia todo'); botões Parar e Feito; alarme só se pedir"
   },
   "teste": {
-    "codigo": 25,
+    "codigo": 26,
     "nativo": 18,
-    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.25/Prumo.apk",
-    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.25/miolo.zip",
-    "sha256": "9a92efc5fe9125f3f05870c72796c992bba49612bbc7489c0f04c04f4788c47a",
-    "notas": "iPhone: site se atualiza sozinho ao abrir/voltar (sem perder dados); esfera sem voz abre o teclado; lembrete repetido vira um aviso por vez no Calendário; convite com os cuidados do iPhone"
+    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.26/Prumo.apk",
+    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.26/miolo.zip",
+    "sha256": "0f71a9017bc2fde15f919c627ddef6f314f26c6e0901186da3c1968c44914d25",
+    "notas": "Notificações só com a mensagem principal (o título) e os botões"
   }
 }

@@ -237,8 +237,8 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
   });
   await prova('é notificação comum, não alarme (alarme só se pedir)', () =>
     !(globalThis.alarmes || []).some(a => a.titulo === serieItem.titulo) && daSerie().every(n => n.channelId === 'avisos'));
-  await prova('notificação da série tem os botões Parar e Feito', () =>
-    daSerie().every(n => n.actionTypeId === 'prumo-repete') && /a cada 20 min/.test(daSerie()[0].body));
+  await prova('notificação da série: só o título + botões Parar e Feito', () =>
+    daSerie().every(n => n.actionTypeId === 'prumo-repete' && n.title === serieItem.titulo && n.body === ''));
   await prova('aviso que já passou sai da série; o próximo é o seguinte', () => {
     const depois = new Date(agora0.getTime() + 50 * 60000);
     const s = Avisos.serie(serieItem, depois);

@@ -291,8 +291,10 @@ const Avisos = {
 
       const lista = plano.filter(x => !x.item.alarme).map(({ item, hora, chave }) => ({
         id: this.numero(chave || item.id),
-        title: (item.repetir ? '🔁 ' : '') + item.titulo,
-        body: this.texto(item, hora),
+        // Só a mensagem principal (pedido dele, 24/11/2026): o título e os botões.
+        // Conta fixa mantém o valor, que é a informação principal dela.
+        title: item.titulo,
+        body: item.conta ? this.texto(item, hora) : '',
         schedule: { at: hora, allowWhileIdle: true },
         channelId: CANAL,
         actionTypeId: item.conta ? 'prumo-conta' : item.repetir ? 'prumo-repete' : 'prumo-aviso',
