@@ -557,7 +557,22 @@ function vazio(titulo, texto, arte, comExemplos) {
 
 /* ---------- telas ---------- */
 
+/* "🧹 N coisas ficaram para trás": abre a revisão (aparece no alto da aba Tarefas). */
+function bannerRevisao() {
+  const n = Dados.itens().filter(eAtrasado).length;
+  if (!n) return '';
+  return `<button class="revisao-banner" data-acao="revisao">
+        <span class="revisao-banner-icone">🧹</span>
+        <span class="revisao-banner-texto"><strong>${n} ${n === 1 ? 'coisa ficou' : 'coisas ficaram'} para trás</strong>
+        <span>Arrume em 20 segundos: feito, adiar ou apagar</span></span>
+        <span class="revisao-banner-seta">›</span></button>`;
+}
+
 function telaHoje() {
+  // Com a esfera ligada, a tela Hoje é SÓ a esfera (pedido dele, 24/11/2026):
+  // gastos ficam em Dinheiro, compromissos na Agenda, tarefas e atrasados em Tarefas.
+  // O resumo abaixo só aparece para quem desligou a esfera nos Ajustes.
+  if (Esfera.ligada()) return '';
   const itens = Dados.itens();
   const h = hojeISO();
   const atrasados = itens.filter(eAtrasado).sort(ordemAgenda);
@@ -585,14 +600,7 @@ function telaHoje() {
       <button class="dia-caixa" data-tipo="tarefa" data-acao="ir-aba" data-aba="tarefas"><span class="n">${pendentes}</span><span class="r">tarefa${pendentes === 1 ? '' : 's'} a fazer</span></button>
       <button class="dia-caixa" data-tipo="gasto" data-acao="ir-aba" data-aba="dinheiro"><span class="n">${esc(fmtMoedaNua(somaHoje).replace(/,00$/, ''))}</span><span class="r">gasto hoje</span></button>
     </div>`;
-  if (atrasados.length) {
-    const n = atrasados.length;
-    h2 += `<button class="revisao-banner" data-acao="revisao">
-        <span class="revisao-banner-icone">🧹</span>
-        <span class="revisao-banner-texto"><strong>${n} ${n === 1 ? 'coisa ficou' : 'coisas ficaram'} para trás</strong>
-        <span>Arrume em 20 segundos: feito, adiar ou apagar</span></span>
-        <span class="revisao-banner-seta">›</span></button>`;
-  }
+  h2 += bannerRevisao();
   if (contas.length) {
     h2 += `<div class="secao-titulo alerta">Contas para pagar <span class="conta">${contas.length}</span></div>` +
           '<div class="lista">' + contas.map(fixaHTML).join('') + '</div>';
@@ -725,9 +733,9 @@ function telaTarefas() {
   const notas = itens.filter(i => i.tipo === 'nota' && !i.feito);
   const feitas = itens.filter(i => i.feito).slice(0, 30);
 
-  if (!itens.length) return vazio('Nada pendente', 'Escreva "lembrar de…" ou "preciso…" e a tarefa aparece aqui.', '✅');
+  if (!itens.length) return bannerRevisao() + vazio('Nada pendente', 'Escreva "lembrar de…" ou "preciso…" e a tarefa aparece aqui.', '✅');
 
-  let h = '';
+  let h = bannerRevisao();
   h += secao('Atrasado', atrasadas, { marcador: true, mostrarData: true });
   h += secao('Com prazo', comPrazo, { marcador: true, mostrarData: true, calendario: true });
   h += secao('Sem prazo', semPrazo, { marcador: true });

@@ -32,7 +32,8 @@ prova('dinheiro somou certo', () => {
   const h = telaDinheiro();
   return h.includes('180,00') && h.includes('3.200,00');
 });
-prova('atrasado aparece', () => telaHoje().includes('atrasado'));
+prova('atrasado aparece (na aba Tarefas)', () => telaTarefas().includes('atrasado') || telaTarefas().includes('Atrasado'));
+prova('com a esfera ligada, a tela Hoje é só a esfera (nada de lista)', () => !Esfera.ligada() || telaHoje() === '');
 prova('botão de calendário na agenda', () => telaAgenda().includes('Pôr no calendário'));
 prova('escapa HTML perigoso', () => {
   const mau = Dados.adicionar(interpretar('lembrar de <script>alert(1)</script>'));
@@ -125,7 +126,7 @@ prova('conta fixa aparece no Dinheiro com "Paguei" e entra no "vai sair"', () =>
 prova('backup leva as contas fixas', () => JSON.parse(Dados.exportar()).fixas.length >= 1);
 
 // ---- revisão do que ficou para trás ----
-prova('Hoje mostra o convite para arrumar os atrasados', () => telaHoje().includes('ficou para trás') || telaHoje().includes('ficaram para trás'));
+prova('Tarefas mostra o convite para arrumar os atrasados', () => /fic(ou|aram) para trás/.test(telaTarefas()));
 prova('revisão: "Amanhã" tira da lista de atrasados', () => {
   const t = Dados.adicionar({ tipo: 'tarefa', titulo: 'Revisar contrato', data: mais(-2), feito: false });
   abrirRevisao();
