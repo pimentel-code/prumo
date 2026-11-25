@@ -162,6 +162,66 @@ function acharDaqui(f, agora) {
   return null;
 }
 
+/* ---------- "a cada 20 minutos" (aviso que se repete) ---------- */
+
+const INTERVALO_MIN = 5;            // menos que isso vira barulho (e o Android atrasa mesmo)
+const INTERVALO_MAX = 12 * 60;
+const REPETIR_PADRAO = 3 * 60;      // sem dizer até quando: 3 horas, para não tocar o dia inteiro esquecido
+const FIM_DO_DIA = '22:00';         // "o dia todo"
+
+/* "a cada 20 minutos", "a cada meia hora", "a cada hora", "a cada 1h30",
+   "de 20 em 20 minutos", "de meia em meia hora", "de hora em hora", "de 2 em 2 horas".
+   E até quando: "até as 18h", "por 2 horas", "durante 1 hora", "o dia todo".
+   Devolve { cada, ateHora?, porMin?, diaTodo? } em minutos, ou null. */
+function acharIntervalo(f) {
+  const num = '(\\d{1,3}|' + Object.keys(NUMEROS_FALADOS).sort((a, b) => b.length - a.length).join('|') + ')';
+  const valorDe = t => /^\d/.test(t) ? +t : NUMEROS_FALADOS[t];
+  const unidade = (n, u) => /^m/.test(u) ? n : n * 60;
+  const tentativas = [
+    [new RegExp('\\ba\\s+cada\\s+(\\d{1,2})\\s*h\\s*([0-5]?\\d)\\s*(?:min(?:utos?)?)?\\b'), m => +m[1] * 60 + +m[2]],
+    [/\b(?:a\s+cada|de)\s+meia\s+(?:em\s+meia\s+)?hora\b/, () => 30],
+    [/\b(?:a\s+cada\s+hora|de\s+hora\s+em\s+hora|toda\s+hora)\b/, () => 60],
+    [new RegExp('\\ba\\s+cada\\s+' + num + '\\s*(horas?|hs?|minutos?|mins?)\\b'), m => unidade(valorDe(m[1]), m[2])],
+    [new RegExp('\\bde\\s+' + num + '\\s+em\\s+' + num + '\\s*(horas?|hs?|minutos?|mins?)\\b'), m => unidade(valorDe(m[1]), m[3])]
+  ];
+  let cada = null;
+  for (const [re, minutos] of tentativas) {
+    const m = f.achar(re);
+    if (!m) continue;
+    const n = minutos(m);
+    if (!n || n < INTERVALO_MIN || n > INTERVALO_MAX) continue;
+    f.marcar(m.index, m.index + m[0].length);
+    cada = n;
+    break;
+  }
+  if (!cada) return null;
+  const r = { cada };
+
+  // Até quando. Só procura isso se houver repetição: "até sexta" de uma tarefa comum fica como está.
+  let m = f.achar(/\bate\s+(?:as\s+)?([01]?\d|2[0-3])\s*(?:[:h]\s*([0-5]\d)|h(?:oras?)?)\b/) ||
+          f.achar(/\bate\s+as\s+([01]?\d|2[0-3])\b()/);
+  if (m) { f.marcar(m.index, m.index + m[0].length); r.ateHora = comZero(+m[1]) + ':' + comZero(+(m[2] || 0)); return r; }
+  m = f.achar(/\bate\s+(?:a\s+)?meia[\s-]?noite\b/);
+  if (m) { f.marcar(m.index, m.index + m[0].length); r.ateHora = '23:59'; return r; }
+  m = f.achar(new RegExp('\\b(?:por|durante|pelas?\\s+proximas?)\\s+(?:(?:as|os)\\s+)?' + num + '\\s*(horas?|hs?|minutos?|mins?)\\b'));
+  if (m) { f.marcar(m.index, m.index + m[0].length); r.porMin = unidade(valorDe(m[1]), m[2]); return r; }
+  m = f.achar(/\b(?:por\s+|durante\s+)?(?:o|todo\s+o)\s+dia\s+(?:todo|inteiro)\b|\bo\s+dia\s+todo\b|\btodo\s+o\s+dia\b/);
+  if (m) { f.marcar(m.index, m.index + m[0].length); r.diaTodo = true; }
+  return r;
+}
+
+/* Tira do título o pedido de aviso que acompanha a repetição:
+   "me lembre disso", "me avise", "lembrar de", "me notifique". */
+function marcarPedidoDeAviso(f) {
+  const res = [/\b(?:me\s+)?lembr\w*(?:-me)?(?:\s+(?:disso|isso|de|que))?\b/,
+               /\bme\s+(?:avis\w*|notifi\w*|cutuc\w*)(?:\s+(?:disso|isso|de|que|para|pra))?\b/,
+               /\b(?:avis\w*|notifi\w*)-me(?:\s+(?:disso|isso|de|que))?\b/];
+  for (const re of res) {
+    const m = f.achar(re);
+    if (m) f.marcar(m.index, m.index + m[0].length);
+  }
+}
+
 /* ---------- hora ---------- */
 
 function acharHora(f) {
@@ -431,8 +491,12 @@ function interpretar(textoOriginal, opcoes = {}) {
   // Antes de hora e data: senão o "dia 5" de "todo dia 5" vira data.
   const repete = acharRepeticao(f);
   const parcelas = acharParcelas(f);
+  // "a cada 20 minutos" antes do "daqui": senão o "em 20 minutos" de "de 20 em 20 minutos" vira hora.
+  const agora = opcoes.agora || new Date();
+  const intervalo = acharIntervalo(f);
+  if (intervalo) marcarPedidoDeAviso(f);
   // "daqui a 40 minutos" antes da hora: senão o "2 horas" de "daqui a 2 horas" vira 02:00.
-  const daqui = acharDaqui(f, opcoes.agora || new Date());
+  const daqui = acharDaqui(f, agora);
   const hora = daqui ? daqui.hora : acharHora(f);
   const data = daqui ? daqui.data : acharData(f, hoje);
   let valor = acharValor(f);
@@ -448,7 +512,7 @@ function interpretar(textoOriginal, opcoes = {}) {
   let tipo;
   if (receita && valor !== null) tipo = 'receita';
   else if (gasto && valor !== null) tipo = 'gasto';
-  else if (hora) tipo = 'compromisso';
+  else if (hora || intervalo) tipo = 'compromisso';
   else if (compromisso) tipo = 'compromisso';
   else if (tarefa) tipo = 'tarefa';
   else if (valor !== null) tipo = 'gasto';
@@ -469,7 +533,7 @@ function interpretar(textoOriginal, opcoes = {}) {
   const sobra = f.sobra();
   // Se só sobrou o verbo (ex.: "salário 4200 todo dia 5"), o título é o próprio verbo/palavra.
   const soVerbo = marcaVerbo ? limparTitulo(textoOriginal.substr(marcaVerbo.index, marcaVerbo.tamanho)) : '';
-  const titulo = limparTitulo(sobra) || ((repete !== null || parcelas) && soVerbo) || (daqui && 'Lembrete') || limparTitulo(textoOriginal) || 'Sem título';
+  const titulo = limparTitulo(sobra) || ((repete !== null || parcelas) && soVerbo) || ((daqui || intervalo) && 'Lembrete') || limparTitulo(textoOriginal) || 'Sem título';
 
   const item = {
     tipo,
@@ -503,5 +567,33 @@ function interpretar(textoOriginal, opcoes = {}) {
   if (repete !== null && (tipo === 'gasto' || tipo === 'receita')) {
     item.todoDia = repete || +(item.data || paraISO(hoje)).slice(8, 10);
   }
+  if (intervalo && tipo === 'compromisso') aplicarIntervalo(item, intervalo, agora);
   return item;
+}
+
+/* Monta a série: o primeiro aviso fica em data/hora (na hora, sem antecedência)
+   e item.repetir = { cada: minutos, ate: 'AAAA-MM-DDTHH:MM' }.
+   Sem hora dita, começa daqui a "cada" minutos. */
+function aplicarIntervalo(item, iv, agora) {
+  const deData = (iso, hhmm) => { const [a, m, d] = iso.split('-').map(Number); const [h, mi] = hhmm.split(':').map(Number); return new Date(a, m - 1, d, h, mi); };
+  const local = d => paraISO(d) + 'T' + comZero(d.getHours()) + ':' + comZero(d.getMinutes());
+  let primeiro, marcado = true;                                // marcado = a pessoa disse quando começa
+  if (item.hora) primeiro = deData(item.data || paraISO(agora), item.hora);
+  else if (item.data && item.data !== paraISO(agora)) primeiro = deData(item.data, '09:00');   // "amanhã": das 9h
+  else { primeiro = new Date(agora.getTime() + iv.cada * 60000); marcado = false; }
+  // Começo da contagem do "por 2 horas" e do padrão: agora, ou a hora pedida se for depois.
+  const comeco = marcado && primeiro > agora ? primeiro : agora;
+  let ate;
+  if (iv.ateHora) {
+    ate = deData(paraISO(primeiro), iv.ateHora);
+    if (ate <= primeiro) ate.setDate(ate.getDate() + 1);      // "das 22h até as 2h"
+  } else if (iv.porMin) ate = new Date(comeco.getTime() + iv.porMin * 60000);
+  else if (iv.diaTodo) {
+    ate = deData(paraISO(primeiro), FIM_DO_DIA);
+    if (ate <= primeiro) ate = new Date(primeiro.getTime() + REPETIR_PADRAO * 60000);
+  } else ate = new Date(comeco.getTime() + REPETIR_PADRAO * 60000);
+  item.data = paraISO(primeiro);
+  item.hora = comZero(primeiro.getHours()) + ':' + comZero(primeiro.getMinutes());
+  item.naHora = true;
+  item.repetir = { cada: iv.cada, ate: local(ate) };
 }

@@ -287,12 +287,41 @@ function camposHTML(item, p) {
   if (temHora) {
     h += `<div class="campo"><label for="${p}hora">Hora</label>
           <input id="${p}hora" type="time" value="${item.hora || ''}"></div>`;
+    if (item.repetir || p === 'e_') h += camposRepetir(item, p);
+    else if (item.hora) h += `<div class="extras"><button type="button" class="mini" data-acao="add-repetir">🔁 Lembrar várias vezes</button></div>`;
     if (Avisos.nativo) {
       h += `<label class="campo-alarme"><input id="${p}alarme" type="checkbox"${item.alarme ? ' checked' : ''}>
             <span>⏰ Tocar como <strong>alarme</strong> (som até você parar)</span></label>`;
     }
   }
   return h + '</div>';
+}
+
+/* "Lembrar a cada" + "Até": a série de avisos de um compromisso. */
+const OPCOES_CADA = [0, 5, 10, 15, 20, 30, 45, 60, 90, 120, 180];
+function camposRepetir(item, p) {
+  const cada = item.repetir ? item.repetir.cada : 0;
+  const opcoes = OPCOES_CADA.indexOf(cada) < 0 ? OPCOES_CADA.concat([cada]).sort((a, b) => a - b) : OPCOES_CADA;
+  const ate = item.repetir ? item.repetir.ate.slice(11, 16) : '';
+  return `<div class="campo"><label for="${p}cada">Lembrar a cada</label><select id="${p}cada">` +
+    opcoes.map(n => `<option value="${n}"${n === cada ? ' selected' : ''}>${n ? rotuloCada(n) : 'Só uma vez'}</option>`).join('') +
+    `</select></div>` +
+    `<div class="campo" id="${p}ateCampo"${cada ? '' : ' hidden'}><label for="${p}ate">Até</label><input id="${p}ate" type="time" value="${ate}"></div>`;
+}
+
+/* Fim da série: no dia do primeiro aviso; se a hora do fim for antes do começo, é no dia seguinte. */
+function fimDaSerie(data, hora, ate, cada) {
+  const [a, m, d] = data.split('-').map(Number);
+  const [h, mi] = hora.split(':').map(Number);
+  const ini = new Date(a, m - 1, d, h, mi);
+  let fim;
+  if (ate) {
+    const [ah, am] = ate.split(':').map(Number);
+    fim = new Date(a, m - 1, d, ah, am);
+    if (fim <= ini) fim.setDate(fim.getDate() + 1);
+  } else fim = new Date(ini.getTime() + Math.max(180, cada * 3) * 60000);
+  const p = n => String(n).padStart(2, '0');
+  return fim.getFullYear() + '-' + p(fim.getMonth() + 1) + '-' + p(fim.getDate()) + 'T' + p(fim.getHours()) + ':' + p(fim.getMinutes());
 }
 
 function lerCampos(item, p) {
@@ -309,6 +338,13 @@ function lerCampos(item, p) {
   if (pega('parcelas')) { const n = parseInt(pega('parcelas').value, 10); novo.parcelas = n >= 2 ? Math.min(n, 72) : 0; }
   if (pega('todoDia')) { const d = parseInt(pega('todoDia').value, 10); novo.todoDia = d >= 1 && d <= 31 ? d : 0; }
   if (pega('todoDia') && item.data) novo.data = item.data;   // conta fixa esconde a data, mas não a perde
+  if (pega('cada')) {
+    const cada = parseInt(pega('cada').value, 10) || 0;
+    if (cada && novo.data && novo.hora) {
+      novo.repetir = { cada, ate: fimDaSerie(novo.data, novo.hora, pega('ate') ? pega('ate').value : '', cada) };
+      novo.naHora = true;
+    } else novo.repetir = null;
+  }
   if (pega('alarme')) novo.alarme = !!pega('alarme').checked;
   else if (novo.tipo !== 'compromisso') delete novo.alarme;
   return novo;
@@ -350,6 +386,8 @@ function recadoHTML() {
     const quando = item && Avisos.quando(item);
     const texto = !quando ? 'Guardado. A hora do aviso já passou.'
       : (Avisos.permitido === false && !item.alarme) ? 'Guardado, mas os avisos estão bloqueados no Android.'
+      : item.repetir ? 'Guardado. ' + (item.alarme ? 'Alarme' : 'Aviso') + ' a cada ' + rotuloCada(item.repetir.cada) +
+          ', ' + fmtQuandoAviso(quando).replace(' às ', ' das ') + ' até as ' + item.repetir.ate.slice(11, 16) + '.'
       : (item.alarme ? 'Guardado. Alarme ' : 'Guardado. Aviso ') + fmtQuandoAviso(quando) + '.';
     const botao = (Avisos.permitido === false && !(item && item.alarme))
       ? `<button class="mini" data-acao="permitir-avisos">Liberar avisos</button>`
@@ -460,6 +498,7 @@ function itemHTML(item, op) {
   }
 
   if (Avisos.nativo && op.calendario && Avisos.quando(item)) info.push((item.alarme ? '⏰ ' : '🔔 ') + esc(fmtQuandoAviso(Avisos.quando(item))));
+  if (item.repetir && !item.feito && (!Avisos.nativo || Avisos.quando(item))) info.push('🔁 a cada ' + esc(rotuloCada(item.repetir.cada)) + ' até ' + esc(item.repetir.ate.slice(11, 16)));
   const calendario = (!Avisos.nativo && op.calendario && item.data && !item.feito && item.id !== App.recado)
     ? `<button class="mini" data-acao="calendario" data-id="${item.id}">Pôr no calendário</button>` : '';
 
@@ -1127,6 +1166,17 @@ document.addEventListener('click', evento => {
     Dados.salvar(); return painelAjustes();
   }
 
+  if (acao === 'add-repetir') {
+    App.rascunho = lerCampos(App.rascunho, 'c_');
+    if (App.rascunho.data && App.rascunho.hora) {
+      App.rascunho.repetir = { cada: 20, ate: fimDaSerie(App.rascunho.data, App.rascunho.hora, '', 20) };
+      App.rascunho.naHora = true;
+    }
+    renderConfirma();
+    const campo = document.getElementById('c_cada');
+    if (campo) campo.focus();
+    return;
+  }
   if (acao === 'add-parcelas' || acao === 'add-fixa') {
     App.rascunho = lerCampos(App.rascunho, 'c_');
     if (acao === 'add-parcelas') App.rascunho.parcelas = 2;
@@ -1254,6 +1304,18 @@ document.addEventListener('input', evento => {
   if (!dica) return;
   const texto = dicaDinheiro(lerCampos(App.rascunho, 'c_'));
   dica.textContent = texto; dica.hidden = !texto;
+});
+
+/* "Lembrar a cada": o campo "Até" só aparece com repetição, já preenchido com o fim padrão. */
+document.addEventListener('input', evento => {
+  const m = /^([ce]_)cada$/.exec(evento.target.id || '');
+  if (!m) return;
+  const p = m[1], cada = parseInt(evento.target.value, 10) || 0;
+  const caixa = document.getElementById(p + 'ateCampo'), ate = document.getElementById(p + 'ate');
+  if (!caixa || !ate) return;
+  caixa.hidden = !cada;
+  const data = document.getElementById(p + 'data'), hora = document.getElementById(p + 'hora');
+  if (cada && !ate.value && data && data.value && hora && hora.value) ate.value = fimDaSerie(data.value, hora.value, '', cada).slice(11, 16);
 });
 
 /* Os exemplos aparecem com a caixa vazia e em foco, e somem ao digitar. */

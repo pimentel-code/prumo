@@ -202,6 +202,63 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
   falado = 'gastei 30 na padaria';
   await prova('microfone devolve o texto falado', async () => (await Avisos.ouvir()) === 'gastei 30 na padaria');
 
+  // ---- "a cada 20 minutos": série de notificações ----
+  const agora0 = new Date();
+  const fr = interpretar('preciso fazer a tarefa x, me lembre disso a cada 20 minutos', { agora: agora0, hoje: agora0 });
+  await prova('"a cada 20 minutos" vira série de 20 em 20 min, por 3 horas', () =>
+    fr.repetir && fr.repetir.cada === 20 && fr.titulo === 'Fazer a tarefa x' && fr.tipo === 'compromisso' &&
+    Math.abs(new Date(fr.repetir.ate) - (agora0.getTime() + 180 * 60000)) < 60000 &&
+    Math.abs(dataHoraDe(fr) - (agora0.getTime() + 20 * 60000)) < 60000);
+  const fr2 = interpretar('ligar pro cliente de meia em meia hora até as 23h59', { agora: agora0, hoje: agora0 });
+  await prova('"de meia em meia hora até as ..." entende o intervalo e o fim', () =>
+    fr2.repetir && fr2.repetir.cada === 30 && fr2.repetir.ate.slice(11) === '23:59' && fr2.titulo === 'Ligar pro cliente');
+  const fr3 = interpretar('alongar a cada hora por 2 horas', { agora: agora0, hoje: agora0 });
+  await prova('"por 2 horas" limita a série', () => fr3.repetir && fr3.repetir.cada === 60 &&
+    Math.abs(new Date(fr3.repetir.ate) - (agora0.getTime() + 120 * 60000)) < 60000);
+  await prova('frase comum continua sem repetição ("pegar certidão até sexta")', () =>
+    !interpretar('pegar certidão até sexta').repetir && !interpretar('daqui a 40 minutos tirar o bolo').repetir);
+  await prova('"a cada 2 minutos" não vira série (mínimo de 5 min)', () => !interpretar('beber água a cada 2 minutos').repetir);
+
+  permissao = 'granted'; Avisos.permitido = true;
+  const serieItem = Dados.adicionar(Avisos.ajustarAlarme(fr));
+  await Avisos.reagendarTudo();
+  const daSerie = () => agendados.filter(n => n.extra && n.extra.id === serieItem.id);
+  await prova('agenda 9 notificações (14:20 … 17:00), uma a cada 20 min, com ids diferentes', () => {
+    const l = daSerie().map(n => +n.schedule.at).sort((a, b) => a - b);
+    return l.length === 9 && l.every((t, k) => k === 0 || t - l[k - 1] === 20 * 60000) &&
+           new Set(daSerie().map(n => n.id)).size === 9;
+  });
+  await prova('é notificação comum, não alarme (alarme só se pedir)', () =>
+    !(globalThis.alarmes || []).some(a => a.titulo === serieItem.titulo) && daSerie().every(n => n.channelId === 'avisos'));
+  await prova('notificação da série tem os botões Parar e Feito', () =>
+    daSerie().every(n => n.actionTypeId === 'prumo-repete') && /a cada 20 min/.test(daSerie()[0].body));
+  await prova('aviso que já passou sai da série; o próximo é o seguinte', () => {
+    const depois = new Date(agora0.getTime() + 50 * 60000);
+    const s = Avisos.serie(serieItem, depois);
+    return s.length === 7 && Math.abs(s[0] - (agora0.getTime() + 60 * 60000)) < 60000;
+  });
+  Avisos.aoTocar({ actionId: 'parar', notification: { extra: { id: serieItem.id } } });
+  await Avisos.reagendarTudo();
+  await prova('"Parar" tira todos os avisos e o compromisso continua na lista', () =>
+    daSerie().length === 0 && Dados.itens().some(i => i.id === serieItem.id && !i.feito));
+  const serie2 = Dados.adicionar(interpretar('olhar o forno a cada 10 minutos por 1 hora', { agora: agora0, hoje: agora0 }));
+  await Avisos.reagendarTudo();
+  const nSerie2 = agendados.filter(n => n.extra && n.extra.id === serie2.id).length;
+  Avisos.aoTocar({ actionId: 'feito', notification: { extra: { id: serie2.id } } });
+  await Avisos.reagendarTudo();
+  await prova('"Feito" encerra a série (6 avisos antes, 0 depois)', () =>
+    nSerie2 === 6 && !agendados.some(n => n.extra && n.extra.id === serie2.id));
+  const serie3 = Dados.adicionar(Avisos.ajustarAlarme(interpretar('alarme a cada 30 minutos para virar o paciente por 1 hora', { agora: agora0, hoje: agora0 })));
+  await Avisos.reagendarTudo();
+  await prova('pedindo "alarme", a série toca como alarme', () =>
+    serie3.alarme && (globalThis.alarmes || []).filter(a => a.titulo === serie3.titulo).length === 2);
+  Dados.atualizar(serie3.id, { feito: true });
+  await Avisos.reagendarTudo();
+  await prova('ICS do iPhone: um aviso a cada passo da série', () => {
+    const ics = montarICS(Object.assign({ id: 'x' }, fr));
+    return (ics.match(/BEGIN:VALARM/g) || []).length === 9 && ics.includes('TRIGGER;RELATED=START:PT160M');
+  });
+
   permissao = 'denied'; Avisos.permitido = false;
   await Avisos.reagendarTudo();
   await prova('sem permissão não agenda nada', () => agendados.length === 0);

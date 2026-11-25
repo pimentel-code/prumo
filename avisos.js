@@ -9,7 +9,8 @@
    "bota o despertador pras 6", "me acorda às 5", "me chama às 7". */
 const PALAVRAS_ALARME = /\b(alarm\w*|despert\w*|acord\w*|me\s+cham[ae])\b/;
 const SO_ALARME = /^((bota|bote|botar|coloca|coloque|colocar|poe|ponha|por|liga|ligar|programa|programar|marca|marcar|cria|criar|um|uma|o|a|me|pra|pro|para|de|alarm\w*|despert\w*|acord\w*|cham[ae])\s*)+$/;
-const MAX_AVISOS = 60;          // o Android limita alarmes por app; os 60 mais próximos bastam
+const MAX_AVISOS = 150;         // o Android limita a 500 alarmes por app; os 150 mais próximos bastam
+const MAX_POR_SERIE = 48;       // "a cada 20 min": no máximo 48 avisos agendados de uma vez por item
 const HORA_SEM_HORARIO = 9;     // tarefa/compromisso sem hora: avisa às 9 da manhã do dia
 const CANAL = 'avisos';
 const ID_REVISAO = 2;           // o lembrete de domingo ("3 coisas ficaram para trás")
@@ -63,6 +64,7 @@ const Avisos = {
     agora = agora || new Date();
     if (!item || item.feito || !item.data) return null;
     if (item.tipo !== 'compromisso' && item.tipo !== 'tarefa') return null;
+    if (item.repetir) return this.serie(item, agora, 1)[0] || null;
 
     if ((item.alarme || item.naHora) && item.hora) {                 // alarme toca na hora exata, sem antecedência
       const inicio = dataHoraDe(item);
@@ -85,6 +87,20 @@ const Avisos = {
     return aviso > agora ? aviso : null;
   },
 
+  /* "a cada 20 min": os próximos avisos da série, de data/hora até repetir.ate. */
+  serie(item, agora, max) {
+    agora = agora || new Date();
+    const r = item.repetir;
+    if (!r || !(r.cada >= 1) || !item.data || !item.hora) return [];
+    const passo = r.cada * 60000;
+    const fim = new Date(r.ate).getTime();
+    let t = dataHoraDe(item).getTime();
+    if (t <= agora.getTime()) t += (Math.floor((agora.getTime() - t) / passo) + 1) * passo;   // pula o que já passou
+    const lista = [];
+    for (; t <= fim && lista.length < (max || MAX_POR_SERIE); t += passo) lista.push(new Date(t));
+    return lista;
+  },
+
   /* O Android exige número inteiro de 32 bits; o id do Prumo é texto. */
   numero(id) {
     let h = 0;
@@ -96,6 +112,11 @@ const Avisos = {
     if (item.conta) {
       const dia = hojeISOAvisos(hora) === item.venc ? 'vence hoje' : 'venceu dia ' + (+item.venc.slice(8, 10));
       return fmtMoeda(item.conta.valor) + ' — ' + dia + '. Toque em "' + (item.conta.tipo === 'receita' ? 'Recebi' : 'Paguei') + '" quando ' + (item.conta.tipo === 'receita' ? 'cair' : 'pagar') + '.';
+    }
+    if (item.repetir) {
+      const ate = new Date(item.repetir.ate);
+      return 'Lembrete a cada ' + rotuloCada(item.repetir.cada) + ', até ' + ate.getHours() + ':' +
+             String(ate.getMinutes()).padStart(2, '0') + '. Toque em "Feito" ou "Parar".';
     }
     if (item.hora) {
       const faltam = Math.round((dataHoraDe(item) - hora) / 60000);
@@ -110,9 +131,17 @@ const Avisos = {
   /* Lista do que fica agendado, do mais próximo ao mais distante. */
   plano(agora) {
     agora = agora || new Date();
-    return Dados.itens()
-      .map(item => ({ item, hora: this.quando(item, agora) }))
-      .filter(x => x.hora)
+    const lista = [];
+    for (const item of Dados.itens()) {
+      if (item.repetir && !item.feito && (item.tipo === 'compromisso' || item.tipo === 'tarefa')) {
+        // Cada aviso da série com id próprio ("id#0", "id#1"...), para um não apagar o outro.
+        this.serie(item, agora).forEach((hora, k) => lista.push({ item, hora, chave: item.id + '#' + k }));
+      } else {
+        const hora = this.quando(item, agora);
+        if (hora) lista.push({ item, hora });
+      }
+    }
+    return lista
       .concat(this.planoContas(agora))
       .sort((x, y) => x.hora - y.hora)
       .slice(0, MAX_AVISOS);
@@ -194,6 +223,12 @@ const Avisos = {
           { id: 'feito', title: 'Feito' }
         ]
       }, {
+        id: 'prumo-repete',
+        actions: [
+          { id: 'parar', title: 'Parar' },
+          { id: 'feito', title: 'Feito' }
+        ]
+      }, {
         id: 'prumo-conta',
         actions: [
           { id: 'paguei', title: 'Paguei' },
@@ -239,9 +274,9 @@ const Avisos = {
 
       // Alarmes vão para o despertador nativo (não dependem da permissão de notificação para tocar).
       const plano = this.plano();
-      await this.nativoPrumo().definirAlarmes({ alarmes: plano.filter(x => x.item.alarme).map(({ item, hora }) => ({
-        id: this.numero(item.id), at: hora.getTime(), titulo: item.titulo,
-        texto: 'Alarme das ' + item.hora
+      await this.nativoPrumo().definirAlarmes({ alarmes: plano.filter(x => x.item.alarme).map(({ item, hora, chave }) => ({
+        id: this.numero(chave || item.id), at: hora.getTime(), titulo: item.titulo,
+        texto: 'Alarme das ' + (chave ? hora.getHours() + ':' + String(hora.getMinutes()).padStart(2, '0') : item.hora)
       })) }).catch(e => console.warn('Avisos: alarmes falharam', e));
 
       const pendentes = await LN.getPending();
@@ -254,13 +289,13 @@ const Avisos = {
         if (!(await this.pedirPermissao())) return;
       }
 
-      const lista = plano.filter(x => !x.item.alarme).map(({ item, hora }) => ({
-        id: this.numero(item.id),
-        title: item.titulo,
+      const lista = plano.filter(x => !x.item.alarme).map(({ item, hora, chave }) => ({
+        id: this.numero(chave || item.id),
+        title: (item.repetir ? '🔁 ' : '') + item.titulo,
         body: this.texto(item, hora),
         schedule: { at: hora, allowWhileIdle: true },
         channelId: CANAL,
-        actionTypeId: item.conta ? 'prumo-conta' : 'prumo-aviso',
+        actionTypeId: item.conta ? 'prumo-conta' : item.repetir ? 'prumo-repete' : 'prumo-aviso',
         autoCancel: true,
         extra: { id: item.id }
       }));
@@ -313,6 +348,12 @@ const Avisos = {
       e.adiados = e.adiados || {};
       e.adiados[id] = new Date(Date.now() + 10 * 60000).toISOString();
       Dados.salvar();
+    } else if (ev.actionId === 'parar') {
+      // Para só os lembretes repetidos (a série termina agora); o compromisso continua na lista.
+      const d = new Date(), p = n => String(n).padStart(2, '0');
+      if (item.repetir) Dados.atualizar(id, { repetir: Object.assign({}, item.repetir, {
+        ate: hojeISOAvisos(d) + 'T' + p(d.getHours()) + ':' + p(d.getMinutes()) }) });
+      if (typeof render === 'function') render();
     } else if (ev.actionId === 'feito') {
       Dados.atualizar(id, { feito: true });
       if (typeof render === 'function') render();
@@ -388,6 +429,13 @@ function dataHoraDe(item) {
   const [a, m, d] = item.data.split('-').map(Number);
   const [hh, mm] = (item.hora || '00:00').split(':').map(Number);
   return new Date(a, m - 1, d, hh, mm);
+}
+
+/* 20 → "20 min", 60 → "1 hora", 90 → "1h30". */
+function rotuloCada(min) {
+  if (min < 60) return min + ' min';
+  const h = Math.floor(min / 60), r = min % 60;
+  return r ? h + 'h' + String(r).padStart(2, '0') : h + (h === 1 ? ' hora' : ' horas');
 }
 
 /* Texto curto de quando o aviso vai tocar: "hoje às 14:30", "qui, 27/11 às 9:00". */

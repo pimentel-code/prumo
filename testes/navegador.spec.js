@@ -558,3 +558,22 @@ test('Ajustes em tela cheia, com subpágina e voltar', async ({ page }) => {
   await page.click('.aj-topo [data-acao="fechar"]');
   await expect(page.locator('.tela-ajustes')).toHaveCount(0);
 });
+
+test('"me lembre a cada 20 minutos" mostra a repetição na confirmação e na lista', async ({ page }) => {
+  await anotar(page, 'preciso fazer a tarefa x, me lembre disso a cada 20 minutos');
+  await expect(page.locator('#c_titulo')).toHaveValue('Fazer a tarefa x');
+  await expect(page.locator('#c_cada')).toHaveValue('20');
+  await expect(page.locator('#c_ateCampo')).toBeVisible();
+  await guardar(page);
+  await expect(page.locator('body')).toContainText('🔁 a cada 20 min até');
+});
+
+test('botão "Lembrar várias vezes" liga a repetição num compromisso com hora', async ({ page }) => {
+  await anotar(page, 'reunião amanhã às 9h');
+  await expect(page.locator('#c_cada')).toHaveCount(0);
+  await page.click('[data-acao="add-repetir"]');
+  await expect(page.locator('#c_cada')).toHaveValue('20');
+  await expect(page.locator('#c_ate')).toHaveValue('12:00');
+  await page.selectOption('#c_cada', '0');
+  await expect(page.locator('#c_ateCampo')).toBeHidden();
+});

@@ -27,7 +27,10 @@ function montarICS(item, minutosAntes) {
   if (item.hora) {
     const [hh, mm] = item.hora.split(':');
     const inicio = new Date(+a, +m - 1, +d, +hh, +mm);
-    const fim = new Date(inicio.getTime() + 60 * 60000);
+    // "a cada 20 min": um evento que dura a série inteira, com um aviso a cada passo.
+    const fimSerie = item.repetir ? new Date(item.repetir.ate) : null;
+    const fim = fimSerie && fimSerie > inicio ? fimSerie : new Date(inicio.getTime() + 60 * 60000);
+    if (fimSerie) item = Object.assign({}, item, { _passos: Math.min(48, Math.floor((fimSerie - inicio) / (item.repetir.cada * 60000)) + 1) });
     const local = x => {
       const p = n => String(n).padStart(2, '0');
       return x.getFullYear() + p(x.getMonth() + 1) + p(x.getDate()) + 'T' +
@@ -44,9 +47,12 @@ function montarICS(item, minutosAntes) {
   }
 
   if (item.texto && item.texto !== item.titulo) linhas.push('DESCRIPTION:' + escaparICS(item.texto));
-  linhas.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + escaparICS(item.titulo),
-              'TRIGGER;RELATED=START:' + gatilho, 'END:VALARM',
-              'END:VEVENT', 'END:VCALENDAR');
+  const gatilhos = item._passos ? Array.from({ length: item._passos }, (_, k) => 'PT' + k * item.repetir.cada + 'M') : [gatilho];
+  for (const g of gatilhos) {
+    linhas.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + escaparICS(item.titulo),
+                'TRIGGER;RELATED=START:' + g, 'END:VALARM');
+  }
+  linhas.push('END:VEVENT', 'END:VCALENDAR');
   return linhas.join('\r\n') + '\r\n';
 }
 
