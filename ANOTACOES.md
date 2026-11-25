@@ -328,3 +328,12 @@ O site (iPhone) continua igual, com o "Pôr no calendário".
 - 1.16 (TESTE, 23/11, só miolo): CAUSA do silencioso falhar = API do GitHub com limite de 60 consultas/h por IP (erro 403 visto no Obtainium; rate_limit 0 restantes). App agora lê canais.json (raw.githubusercontent.com, sem limite) com {estavel, teste}: {codigo, nativo, apk, miolo, notas}; API só de reserva. publicar-apk.sh grava o canal teste (canais.py), aprovar-apk.sh o estável (commit+push no main). Só a última de cada canal conta (versão que exige APK não cai para miolo antigo).
 - 1.18 (TESTE, 23/11, NATIVA forçada): 2ª causa do silencioso = @capgo exige checksum (SHA-256 hex do zip) no download ('Checksum required' → 'Failed to download'); canais.py grava sha256, miolo.js manda checksum; sem sha (reserva pela API) não baixa miolo. Faixa avisa versão de teste a quem testa. Instalar por QR (~/Imagens/prumo-1.18-qr.png); depois 1.19 só miolo = prova.
 - 23/11/2026: SILENCIOSO PROVADO no celular dele (1.18 → 1.19 sozinho, sem instalar). Causas que foram consertadas: limite 60/h da API (canais.json) e checksum SHA-256 obrigatório.
+
+## Lembrete repetido (1.20, teste em 24/11/2026)
+- Frases: "a cada 20 minutos", "a cada meia hora/hora/1h30", "de 20 em 20 min", "de meia em meia hora", "de hora em hora".
+  Fim: "até as 18h", "até meia-noite", "por/durante 2 horas", "o dia todo" (até 22h). Sem fim dito: 3 horas. Mínimo 5 min, máximo 12 h.
+- Vira compromisso com `repetir: { cada, ate }`; data/hora = 1º aviso (sem hora dita: agora + intervalo). `naHora` = sem antecedência.
+- Android: notificação comum (canal avisos), ids "id#k", até 48 por série, MAX_AVISOS 150. Botões Parar (encerra a série agora, item fica) e Feito.
+  Alarme só se a frase pedir ("alarme a cada 30 min").
+- iPhone (.ics): um evento cobrindo a série, um VALARM por passo (o iPhone pode guardar só 2 avisos — NÃO conferido).
+- Confirmação: campos "Lembrar a cada" e "Até"; compromisso com hora ganha o botão "🔁 Lembrar várias vezes".
