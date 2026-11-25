@@ -310,9 +310,9 @@ test('o tutorial aparece na primeira vez e não volta depois', async ({ page }) 
 
   const tut = page.locator('#tutorial');
   await expect(tut).toBeVisible();
-  // No site são 10 telas (widget e atualização são só do app Android).
+  // No site são 11 telas (o widget é só do app Android).
   const total = await page.locator('.tut-slide').count();
-  expect(total).toBe(10);
+  expect(total).toBe(11);
   await expect(page.locator('#tutPasso')).toHaveText('1 de ' + total);
 
   // Anda até o fim pelos botões, conferindo que cada tela chega.
@@ -359,7 +359,7 @@ test('o tutorial passa com o dedo e não rola a página de lado', async ({ page 
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await page.locator('#tutTrilho').evaluate(t => t.scrollTo({ left: t.clientWidth * 2 }));
-  await expect(page.locator('#tutPasso')).toHaveText('3 de 10');
+  await expect(page.locator('#tutPasso')).toHaveText('3 de 11');
   const folga = await page.evaluate(() =>
     document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(folga).toBeLessThanOrEqual(0);
@@ -584,11 +584,12 @@ test('quem já viu o tutorial recebe só as novidades, uma vez', async ({ page }
   const tut = page.locator('#tutorial');
   await expect(tut).toBeVisible();
   await expect(page.locator('.tut-slide h2').first()).toHaveText('Novidades do Prumo');
-  // No site: capa + esfera + lembretes que repetem.
-  await expect(page.locator('.tut-slide')).toHaveCount(3);
+  // No site: capa + esfera + lembretes que repetem + atualização sozinha.
+  await expect(page.locator('.tut-slide')).toHaveCount(4);
   await page.click('#tutProximo');
   await page.click('#tutProximo');
   await expect(page.locator('.tut-repete-lista .tut-aviso')).not.toHaveCount(0);
+  await page.click('#tutProximo');
   await expect(page.locator('#tutProximo')).toHaveText('Entendi');
   await page.click('#tutProximo');
   await expect(tut).toHaveCount(0);
@@ -600,6 +601,41 @@ test('quem já viu o tutorial recebe só as novidades, uma vez', async ({ page }
 test('o "?" mostra a apresentação inteira com o selo "Novo" nas telas recentes', async ({ page }) => {
   await page.evaluate(() => localStorage.setItem('prumo.tutorial.novidades', '19'));
   await page.click('#btAjuda');
-  await expect(page.locator('.tut-slide')).toHaveCount(10);
-  await expect(page.locator('.tut-selo-novo')).toHaveCount(2);
+  await expect(page.locator('.tut-slide')).toHaveCount(11);
+  await expect(page.locator('.tut-selo-novo')).toHaveCount(3);
+});
+
+test('site sem reconhecimento de voz: tocar na esfera abre o teclado na caixa', async ({ page }) => {
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('prumo.tutorial.visto', '1'); localStorage.setItem('prumo.tutorial.novidades', '999'); });
+  await page.addInitScript(() => { delete window.SpeechRecognition; delete window.webkitSpeechRecognition; });
+  await page.reload();
+  await expect(page.locator('#esferaHoje')).toContainText('escreva o que precisa');
+  await page.locator('#esferaHoje canvas').click();
+  await expect(page.locator('#campoEntrada')).toBeFocused();
+});
+
+test('site (iPhone): versão nova publicada → baixa tudo e recarrega sozinho, sem perder dados', async ({ page, context }) => {
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('prumo.tutorial.visto', '1'); localStorage.setItem('prumo.tutorial.novidades', '999'); });
+  await page.reload();
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload();                                   // agora a página é controlada pelo sw.js
+  await page.evaluate(() => Dados.adicionar({ tipo: 'tarefa', titulo: 'Não pode sumir', data: null, feito: false }));
+  await context.route(/versao-miolo\.js\?fresco/, r => r.fulfill({ contentType: 'text/javascript', body: 'const PRUMO_MIOLO = 999;' }));
+  const recarregou = page.waitForEvent('load');
+  await page.evaluate(() => { window.__antes = 1; Miolo.conferirSite(true); });
+  await recarregou;
+  expect(await page.evaluate(() => window.__antes)).toBeUndefined();
+  expect(await page.evaluate(() => Miolo.diario().some(d => /Site: 1\.999 baixada/.test(d.texto)))).toBe(true);
+  expect(await page.evaluate(() => Dados.itens().some(i => i.titulo === 'Não pode sumir'))).toBe(true);
+});
+
+test('site: no meio de uma anotação não recarrega (espera sair e voltar)', async ({ page, context }) => {
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.reload();
+  await page.fill('#campoEntrada', 'escrevendo algo');
+  await context.route(/versao-miolo\.js\?fresco/, r => r.fulfill({ contentType: 'text/javascript', body: 'const PRUMO_MIOLO = 999;' }));
+  await page.evaluate(() => { window.__antes = 1; return Miolo.conferirSite(true); });
+  expect(await page.evaluate(() => window.__antes)).toBe(1);
+  expect(await page.evaluate(() => Miolo._recarregarQuandoPuder)).toBe(true);
+  await expect(page.locator('#campoEntrada')).toHaveValue('escrevendo algo');
 });

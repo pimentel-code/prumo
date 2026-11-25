@@ -146,6 +146,55 @@ const Miolo = {
     }
   },
 
+  /* ---------- site (iPhone e PC): sem a peça do Android ----------
+     Ao abrir e ao voltar para o app, pergunta ao site qual é a versão publicada.
+     Se for mais nova, pede ao sw.js para baixar tudo e recarrega na hora em que
+     ninguém estiver no meio de uma anotação. Os dados (localStorage) não mudam. */
+  _siteVisto: 0,
+  _recarregarQuandoPuder: false,
+  iniciarSite() {
+    if (!('serviceWorker' in navigator)) return;
+    // Pede ao navegador para não apagar os dados sozinho (o Safari apaga site parado há 7 dias).
+    try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) {}
+    setTimeout(() => this.conferirSite(), 3000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') return;
+      if (this._recarregarQuandoPuder && this.podeRecarregar()) return location.reload();
+      this.conferirSite();
+    });
+  },
+  podeRecarregar() {
+    const campo = document.getElementById('campoEntrada');
+    const painel = document.getElementById('painel');
+    return !(typeof App !== 'undefined' && App.rascunho) && !(campo && campo.value.trim()) &&
+           !(painel && painel.innerHTML.trim()) && !(typeof Tutorial !== 'undefined' && Tutorial.aberto) &&
+           !(typeof EsferaHoje !== 'undefined' && EsferaHoje.ouvindo);
+  },
+  async conferirSite(forcar) {
+    if (!forcar && Date.now() - this._siteVisto < 10 * 60000) return null;
+    this._siteVisto = Date.now();
+    let nova = 0;
+    try {
+      const r = await fetch('versao-miolo.js?fresco=' + Date.now(), { cache: 'no-store' });
+      const m = /PRUMO_MIOLO\s*=\s*(\d+)/.exec(await r.text());
+      nova = m ? +m[1] : 0;
+    } catch (e) { return null; }                  // sem internet: fica como está
+    if (nova <= this.versao) return null;
+    const sw = navigator.serviceWorker && (await navigator.serviceWorker.ready.catch(() => null));
+    if (!sw || !sw.active) return null;
+    const ok = await new Promise(fim => {
+      const canal = new MessageChannel();
+      canal.port1.onmessage = e => fim(!!(e.data && e.data.ok));
+      sw.active.postMessage({ tipo: 'atualizar' }, [canal.port2]);
+      setTimeout(() => fim(false), 30000);
+    });
+    if (!ok) { this.anotar('Site: não conseguiu baixar a 1.' + nova); return null; }
+    this.anotar('Site: 1.' + nova + ' baixada');
+    if (this.podeRecarregar()) location.reload();
+    else this._recarregarQuandoPuder = true;      // recarrega quando sair e voltar ao app
+    return '1.' + nova;
+  },
+
   async conferir(forcar) {
     const P = this.plugin();
     if (!P) return null;

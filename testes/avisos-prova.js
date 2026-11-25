@@ -261,9 +261,10 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
     serie3.alarme && (globalThis.alarmes || []).filter(a => a.titulo === serie3.titulo).length === 2);
   Dados.atualizar(serie3.id, { feito: true });
   await Avisos.reagendarTudo();
-  await prova('ICS do iPhone: um aviso a cada passo da série', () => {
+  await prova('ICS do iPhone: um compromisso com aviso para cada passo da série (iPhone guarda só 2 avisos por evento)', () => {
     const ics = montarICS(Object.assign({ id: 'x' }, fr));
-    return (ics.match(/BEGIN:VALARM/g) || []).length === 9 && ics.includes('TRIGGER;RELATED=START:PT160M');
+    return (ics.match(/BEGIN:VEVENT/g) || []).length === 9 && (ics.match(/BEGIN:VALARM/g) || []).length === 9 &&
+           !ics.includes('PT160M') && ics.trim().endsWith('END:VCALENDAR');
   });
 
   permissao = 'denied'; Avisos.permitido = false;

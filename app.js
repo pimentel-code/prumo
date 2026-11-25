@@ -400,7 +400,12 @@ function recadoHTML() {
     </div>`;
   }
   return `<div class="recado">
-      <div class="recado-texto">Guardado. Quer ser avisado na hora?</div>
+      <div class="recado-texto">${(() => {
+        const it = Dados.itens().find(i => i.id === App.recado);
+        if (!it || !it.repetir || !it.hora) return 'Guardado. Quer ser avisado na hora?';
+        const n = Math.min(48, Math.floor((new Date(it.repetir.ate) - dataHoraDe(it)) / (it.repetir.cada * 60000)) + 1);
+        return 'Guardado. Quer os ' + n + ' avisos (a cada ' + esc(rotuloCada(it.repetir.cada)) + ') no Calendário?';
+      })()}</div>
       <button class="mini" data-acao="calendario" data-id="${App.recado}">Pôr no calendário</button>
       <button class="icone-botao" data-acao="fechar-recado" aria-label="Dispensar">✕</button>
     </div>`;
@@ -1459,6 +1464,7 @@ function iniciar() {
     });
   } else if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
+    if (typeof Miolo !== 'undefined' && (location.protocol === 'https:' || location.hostname === 'localhost')) Miolo.iniciarSite();
   }
 }
 

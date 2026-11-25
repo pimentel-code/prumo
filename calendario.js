@@ -13,47 +13,47 @@ function carimboUTC(d) {
 }
 
 function montarICS(item, minutosAntes) {
+  // "a cada 20 min": um compromisso curto para CADA aviso, cada um com o seu alarme.
+  // (Um evento só com vários alarmes não serve: o iPhone guarda no máximo 2.)
+  if (item.repetir && item.hora) {
+    const [a, m, d] = item.data.split('-').map(Number);
+    const [hh, mm] = item.hora.split(':').map(Number);
+    const inicio = new Date(a, m - 1, d, hh, mm), fim = new Date(item.repetir.ate);
+    const passo = item.repetir.cada * 60000;
+    const eventos = [];
+    for (let t = inicio.getTime(), k = 0; t <= fim.getTime() && k < 48; t += passo, k++) {
+      eventos.push(blocoEvento(Object.assign({}, item, { id: item.id + '-' + k }), new Date(t), new Date(t + Math.min(passo, 15 * 60000)), 'PT0M'));
+    }
+    return embrulharICS(eventos);
+  }
   const [a, m, d] = item.data.split('-');
-  const dia = a + m + d;
-  const linhas = [
-    'BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Prumo//PT-BR//', 'CALSCALE:GREGORIAN',
-    'BEGIN:VEVENT',
-    'UID:prumo-' + item.id + '@prumo.local',
-    'DTSTAMP:' + carimboUTC(new Date()),
-    'SUMMARY:' + escaparICS(item.titulo)
-  ];
-
-  let gatilho;
   if (item.hora) {
     const [hh, mm] = item.hora.split(':');
     const inicio = new Date(+a, +m - 1, +d, +hh, +mm);
-    // "a cada 20 min": um evento que dura a série inteira, com um aviso a cada passo.
-    const fimSerie = item.repetir ? new Date(item.repetir.ate) : null;
-    const fim = fimSerie && fimSerie > inicio ? fimSerie : new Date(inicio.getTime() + 60 * 60000);
-    if (fimSerie) item = Object.assign({}, item, { _passos: Math.min(48, Math.floor((fimSerie - inicio) / (item.repetir.cada * 60000)) + 1) });
-    const local = x => {
-      const p = n => String(n).padStart(2, '0');
-      return x.getFullYear() + p(x.getMonth() + 1) + p(x.getDate()) + 'T' +
-             p(x.getHours()) + p(x.getMinutes()) + '00';
-    };
-    linhas.push('DTSTART:' + local(inicio), 'DTEND:' + local(fim));
-    gatilho = item.naHora ? 'PT0M' : '-PT' + (minutosAntes || 30) + 'M';   // "daqui a 40 min": na hora
-  } else {
-    const seguinte = new Date(+a, +m - 1, +d + 1);
-    const p = n => String(n).padStart(2, '0');
-    linhas.push('DTSTART;VALUE=DATE:' + dia,
-                'DTEND;VALUE=DATE:' + seguinte.getFullYear() + p(seguinte.getMonth() + 1) + p(seguinte.getDate()));
-    gatilho = 'PT9H';   // dia inteiro: avisa às 9 da manhã
+    const gatilho = item.naHora ? 'PT0M' : '-PT' + (minutosAntes || 30) + 'M';   // "daqui a 40 min": na hora
+    return embrulharICS([blocoEvento(item, inicio, new Date(inicio.getTime() + 60 * 60000), gatilho)]);
   }
+  return embrulharICS([blocoEvento(item, new Date(+a, +m - 1, +d), null, 'PT9H')]);   // dia inteiro: avisa às 9h
+}
 
+function embrulharICS(eventos) {
+  return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Prumo//PT-BR//', 'CALSCALE:GREGORIAN']
+    .concat(...eventos, ['END:VCALENDAR']).join('\r\n') + '\r\n';
+}
+
+/* Um VEVENT com um alarme. fim = null → dia inteiro. */
+function blocoEvento(item, inicio, fim, gatilho) {
+  const p = n => String(n).padStart(2, '0');
+  const dia = x => x.getFullYear() + p(x.getMonth() + 1) + p(x.getDate());
+  const local = x => dia(x) + 'T' + p(x.getHours()) + p(x.getMinutes()) + '00';
+  const linhas = ['BEGIN:VEVENT', 'UID:prumo-' + item.id + '@prumo.local', 'DTSTAMP:' + carimboUTC(new Date()),
+                  'SUMMARY:' + escaparICS(item.titulo)];
+  if (fim) linhas.push('DTSTART:' + local(inicio), 'DTEND:' + local(fim));
+  else linhas.push('DTSTART;VALUE=DATE:' + dia(inicio), 'DTEND;VALUE=DATE:' + dia(new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + 1)));
   if (item.texto && item.texto !== item.titulo) linhas.push('DESCRIPTION:' + escaparICS(item.texto));
-  const gatilhos = item._passos ? Array.from({ length: item._passos }, (_, k) => 'PT' + k * item.repetir.cada + 'M') : [gatilho];
-  for (const g of gatilhos) {
-    linhas.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + escaparICS(item.titulo),
-                'TRIGGER;RELATED=START:' + g, 'END:VALARM');
-  }
-  linhas.push('END:VEVENT', 'END:VCALENDAR');
-  return linhas.join('\r\n') + '\r\n';
+  linhas.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + escaparICS(item.titulo),
+              'TRIGGER;RELATED=START:' + gatilho, 'END:VALARM', 'END:VEVENT');
+  return linhas;
 }
 
 function nomeArquivoICS(item) {

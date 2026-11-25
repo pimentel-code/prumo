@@ -322,6 +322,14 @@ const EsferaHoje = {
   visivel: false,
   ouvindo: false,
   PADRAO: 'Toque na esfera ou no microfone<br>e me diga o que precisa',
+  PADRAO_SEM_VOZ: 'Toque na esfera e escreva o que precisa<br><small>ou use o 🎤 do teclado para ditar</small>',
+  padrao() { return Esfera.temVoz() ? this.PADRAO : this.PADRAO_SEM_VOZ; },
+  /* Sem voz (ou o navegador recusou): o teclado abre na caixa lá em cima — no iPhone
+     ele tem o 🎤 de ditado. */
+  escrever() {
+    const campo = document.getElementById('campoEntrada');
+    if (campo) { window.scrollTo({ top: 0, behavior: 'smooth' }); campo.focus(); }
+  },
 
   el() { return typeof document !== 'undefined' && document.getElementById ? document.getElementById('esferaHoje') : null; },
 
@@ -335,7 +343,7 @@ const EsferaHoje = {
     if (!el.dataset.pronto) {
       el.dataset.pronto = '1';
       el.querySelector('canvas').addEventListener('click', () => this.ouvindo ? this.parar() : this.ouvir());
-      this.status(this.PADRAO);
+      this.status(this.padrao());
     }
     this.visivel = sim;
     if (sim) Esfera.prepararTela(el.querySelector('canvas'), () => this.visivel);
@@ -355,7 +363,8 @@ const EsferaHoje = {
   },
 
   async ouvir() {
-    if (this.ouvindo || !Esfera.temVoz()) return;
+    if (this.ouvindo) return;
+    if (!Esfera.temVoz()) return this.escrever();
     if (!this.visivel) { App.aba = 'hoje'; App.busca = null; if (typeof fecharPainel === 'function') fecharPainel(); render(); }
     window.scrollTo({ top: 0, behavior: 'smooth' });
     if (App.rascunho) { App.rascunho = null; renderConfirma(); }
@@ -370,6 +379,7 @@ const EsferaHoje = {
     } catch (e) {
       this.fim();
       this.status(esc((e && e.message) || 'Não consegui ouvir.') + '<br>Você pode escrever na caixa lá em cima.');
+      this.escrever();
       return;
     }
     this.fim();
@@ -378,7 +388,7 @@ const EsferaHoje = {
     const campo = document.getElementById('campoEntrada');
     campo.value = texto;
     aoEnviar({ preventDefault() {} });     // a confirmação "Entendi assim" de sempre
-    setTimeout(() => { if (!this.ouvindo) this.status(this.PADRAO); }, 6000);
+    setTimeout(() => { if (!this.ouvindo) this.status(this.padrao()); }, 6000);
   },
 
   fim() { this.ouvindo = false; this.marcar(false); Esfera.nivel = 0; },

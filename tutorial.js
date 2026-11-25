@@ -79,7 +79,7 @@ const Tutorial = {
         id: 'esfera', nova: 21,
         // Só a esfera e uma frase (pedido dele, 24/11/2026).
         arte: `<div class="tut-esfera"><canvas aria-hidden="true"></canvas></div>`,
-        titulo: 'Toque na esfera e fale o que deseja',
+        titulo: voz ? 'Toque na esfera e fale o que deseja' : 'Toque na esfera e escreva o que deseja',
         texto: ''
       },
       {
@@ -174,7 +174,7 @@ const Tutorial = {
         titulo: 'Anote sem abrir o app',
         texto: 'Ponha o <strong>widget</strong>: segure o dedo num espaço vazio da tela do celular → <strong>Widgets</strong> → Prumo. Ou segure o dedo no <strong>ícone do Prumo</strong> para Falar ou Anotar direto.'
       } : null,
-      nativo ? {
+      {
         id: 'atualiza', nova: 22,
         arte: `<div class="tut-atualiza">
                  <div class="tut-atualiza-versoes"><span class="velha">1.21</span><span class="seta">→</span><span class="nova">1.22</span></div>
@@ -182,8 +182,10 @@ const Tutorial = {
                  <small>baixando em segundo plano… pronto ✓</small>
                </div>`,
         titulo: 'Sempre atualizado',
-        texto: 'O Prumo <strong>se atualiza sozinho</strong>: baixa a versão nova sem você perceber e, na próxima vez que abrir, já entra nela. Seus dados ficam. Com pressa? <strong>⚙ Ajustes → Atualizar agora</strong>.'
-      } : null,
+        texto: nativo
+          ? 'O Prumo <strong>se atualiza sozinho</strong>: baixa a versão nova sem você perceber e, na próxima vez que abrir, já entra nela. Seus dados ficam. Com pressa? <strong>⚙ Ajustes → Atualizar agora</strong>.'
+          : 'O Prumo <strong>se atualiza sozinho</strong> quando o celular tem internet: ao abrir (ou voltar para ele), já entra na versão nova. Seus dados ficam.'
+      },
       {
         arte: `<div class="tut-cofre">🔒</div>`,
         titulo: 'Seus dados ficam com você',
