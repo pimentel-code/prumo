@@ -1382,6 +1382,7 @@ function iniciar() {
 
   render();
   if (Tutorial.precisa()) Tutorial.abrir();
+  else if (Tutorial.novidades().length) Tutorial.abrir({ novidades: true });   // só as telas novas, uma vez
   // Desde a 1.13 a esfera fica na tela Hoje (EsferaHoje), sem janela ao abrir.
 
   // Falar: pela esfera da tela Hoje; com ela desligada, pela janela.

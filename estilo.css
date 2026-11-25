@@ -800,3 +800,48 @@ body.hoje-vazio.com-esfera-hoje .esfera-hoje { flex: 1; justify-content: center;
 body.hoje-vazio.com-esfera-hoje main { flex: 0; padding: 0; }
 body.hoje-vazio.com-esfera-hoje .esfera-hoje-tela { width: min(80vw, 320px); }
 body.hoje-vazio.com-esfera-hoje .esfera-hoje-texto { font-size: 16.5px; }
+
+/* ---------- tutorial: telas novas (esfera, lembretes que repetem, atualização) ---------- */
+.tut-slide { position: relative; }
+.tut-selo-novo {
+  position: absolute; top: 4px; left: 50%; transform: translateX(-50%);
+  font-size: 11.5px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: #fff; background: var(--degrade-botao); border-radius: 999px; padding: 4px 12px;
+  box-shadow: 0 4px 12px var(--brilho);
+}
+.tut-logo-novo span { font-size: 64px; display: inline-block; animation: balanco 3.2s ease-in-out infinite; }
+
+.tut-esfera { width: 100%; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.tut-esfera canvas { width: min(62vw, 240px); height: min(62vw, 240px); display: block; cursor: default; }
+.tut-fala { min-height: 1.5em; font-size: 15px; color: var(--texto); font-weight: 600; text-align: center; opacity: 0; }
+.tut-fala.entra { animation: fala-entra 2.6s ease-in-out; }
+@keyframes fala-entra { 0% { opacity: 0; transform: translateY(6px); } 15%, 80% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+
+.tut-repete { width: 100%; display: grid; gap: 10px; }
+.tut-repete-frase {
+  font-size: 14px; text-align: center; color: var(--suave); background: var(--cartao);
+  border: 1px solid var(--acento); border-radius: 16px; padding: 10px 12px;
+}
+.tut-repete-frase b { color: var(--texto); }
+.tut-repete-lista { display: grid; gap: 8px; min-height: 236px; align-content: start; }
+.tut-aviso-repete { animation: aviso-chega .45s cubic-bezier(.2, .9, .3, 1.2); }
+.tut-aviso-repete:not(:first-child) { opacity: .55; transform: scale(.97); transition: opacity .3s, transform .3s; }
+.tut-aviso-repete.parou .selo { filter: grayscale(.2); }
+.tut-aviso-repete.parou span { color: var(--verde, #34d399); font-weight: 650; }
+.tut-aviso-bts { display: flex; gap: 6px; margin-top: 6px; }
+.tut-aviso-bts b { font-size: 12px; font-weight: 700; color: var(--acento); background: var(--acento-claro); border-radius: 999px; padding: 3px 10px; }
+@keyframes aviso-chega { from { opacity: 0; transform: translateY(-14px) scale(.96); } to { opacity: 1; transform: none; } }
+
+.tut-atualiza {
+  width: 100%; display: grid; gap: 14px; justify-items: center; background: var(--cartao);
+  border: 1px solid var(--linha); border-radius: 20px; padding: 22px 18px; box-shadow: var(--sombra-forte);
+}
+.tut-atualiza-versoes { display: flex; align-items: center; gap: 14px; font-size: 26px; font-weight: 800; }
+.tut-atualiza-versoes .velha { color: var(--suave); text-decoration: line-through; text-decoration-thickness: 2px; }
+.tut-atualiza-versoes .seta { color: var(--acento); animation: seta-anda 1.6s ease-in-out infinite; }
+.tut-atualiza-versoes .nova { background: var(--degrade-botao); -webkit-background-clip: text; background-clip: text; color: transparent; }
+@keyframes seta-anda { 50% { transform: translateX(5px); } }
+.tut-atualiza-barra { width: 100%; height: 8px; border-radius: 999px; background: var(--linha); overflow: hidden; }
+.tut-atualiza-barra i { display: block; height: 100%; width: 0; background: var(--degrade-botao); border-radius: inherit; animation: barra-enche 3s ease-in-out infinite; }
+@keyframes barra-enche { 0% { width: 0; } 70%, 100% { width: 100%; } }
+.tut-atualiza small { color: var(--suave); font-size: 13px; }

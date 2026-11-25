@@ -8,7 +8,7 @@ const { test, expect } = require('@playwright/test');
    já visto, para ele não ficar na frente das outras provas. */
 async function abrirLimpo(page) {
   await page.goto('index.html');
-  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('prumo.tutorial.visto', '1'); localStorage.setItem('prumo.esfera.aoAbrir', 'nao'); });
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('prumo.tutorial.visto', '1'); localStorage.setItem('prumo.tutorial.novidades', '999'); localStorage.setItem('prumo.esfera.aoAbrir', 'nao'); });
   await page.reload();
   await expect(page.locator('#campoEntrada')).toBeVisible();
 }
@@ -310,9 +310,9 @@ test('o tutorial aparece na primeira vez e não volta depois', async ({ page }) 
 
   const tut = page.locator('#tutorial');
   await expect(tut).toBeVisible();
-  // No site são 8 telas (a do widget é só do app Android).
+  // No site são 10 telas (widget e atualização são só do app Android).
   const total = await page.locator('.tut-slide').count();
-  expect(total).toBe(8);
+  expect(total).toBe(10);
   await expect(page.locator('#tutPasso')).toHaveText('1 de ' + total);
 
   // Anda até o fim pelos botões, conferindo que cada tela chega.
@@ -359,7 +359,7 @@ test('o tutorial passa com o dedo e não rola a página de lado', async ({ page 
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await page.locator('#tutTrilho').evaluate(t => t.scrollTo({ left: t.clientWidth * 2 }));
-  await expect(page.locator('#tutPasso')).toHaveText('3 de 8');
+  await expect(page.locator('#tutPasso')).toHaveText('3 de 10');
   const folga = await page.evaluate(() =>
     document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(folga).toBeLessThanOrEqual(0);
@@ -487,7 +487,7 @@ test('revisão do que ficou para trás: uma de cada vez', async ({ page }) => {
 /* ---------- esfera (23/11/2026; fixa na tela Hoje desde a 1.13) ---------- */
 
 async function abrirComEsfera(page) {
-  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('prumo.tutorial.visto', '1'); });
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('prumo.tutorial.visto', '1'); localStorage.setItem('prumo.tutorial.novidades', '999'); });
   await page.reload();
   await expect(page.locator('#esferaHoje')).toBeVisible();
 }
@@ -576,4 +576,30 @@ test('botão "Lembrar várias vezes" liga a repetição num compromisso com hora
   await expect(page.locator('#c_ate')).toHaveValue('12:00');
   await page.selectOption('#c_cada', '0');
   await expect(page.locator('#c_ateCampo')).toBeHidden();
+});
+
+test('quem já viu o tutorial recebe só as novidades, uma vez', async ({ page }) => {
+  await page.evaluate(() => { localStorage.clear(); localStorage.setItem('prumo.tutorial.visto', '1'); });
+  await page.reload();
+  const tut = page.locator('#tutorial');
+  await expect(tut).toBeVisible();
+  await expect(page.locator('.tut-slide h2').first()).toHaveText('Novidades do Prumo');
+  // No site: capa + esfera + lembretes que repetem.
+  await expect(page.locator('.tut-slide')).toHaveCount(3);
+  await page.click('#tutProximo');
+  await page.click('#tutProximo');
+  await expect(page.locator('.tut-repete-lista .tut-aviso')).not.toHaveCount(0);
+  await expect(page.locator('#tutProximo')).toHaveText('Entendi');
+  await page.click('#tutProximo');
+  await expect(tut).toHaveCount(0);
+  await page.reload();
+  await expect(page.locator('#campoEntrada')).toBeVisible();
+  await expect(tut).toHaveCount(0);
+});
+
+test('o "?" mostra a apresentação inteira com o selo "Novo" nas telas recentes', async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem('prumo.tutorial.novidades', '19'));
+  await page.click('#btAjuda');
+  await expect(page.locator('.tut-slide')).toHaveCount(10);
+  await expect(page.locator('.tut-selo-novo')).toHaveCount(2);
 });

@@ -1,9 +1,16 @@
-/* tutorial.js — a apresentação que aparece na primeira vez que o Prumo abre.
-   Seis telas que passam com o dedo (ou com os botões). Fica guardado no aparelho
-   que já foi visto; dá para rever em Ajustes → "Ver o tutorial de novo". */
+/* tutorial.js — a apresentação que aparece na primeira vez que o Prumo abre
+   (e no botão "?" lá em cima). Telas que passam com o dedo ou com os botões.
+
+   NOVIDADES: cada tela nova leva "nova: N" (N = número da versão em que entrou).
+   Quem já tinha visto a apresentação recebe, uma vez, só as telas novas
+   ("Novidades do Prumo"). Ao acrescentar uma função, ponha a tela aqui com o
+   número da versão — o aviso de novidades sai sozinho. */
 
 const Tutorial = {
   CHAVE: 'prumo.tutorial.visto',
+  CHAVE_NOVIDADES: 'prumo.tutorial.novidades',   // maior "nova" que este aparelho já viu
+  BASE_NOVIDADES: 19,                             // quem viu o tutorial antes disso não conhecia as telas > 19
+  modoNovidades: false,
   aberto: false,
   atual: 0,
   total: 0,
@@ -15,11 +22,39 @@ const Tutorial = {
   },
 
   marcarVisto() {
-    try { localStorage.setItem(this.CHAVE, new Date().toISOString()); } catch (e) {}
+    try {
+      localStorage.setItem(this.CHAVE, new Date().toISOString());
+      localStorage.setItem(this.CHAVE_NOVIDADES, String(this.maiorNova()));
+    } catch (e) {}
+  },
+
+  maiorNova() { return Math.max(0, ...this.telasTodas().map(t => t.nova || 0)); },
+  novidadesVistas() {
+    try { const v = localStorage.getItem(this.CHAVE_NOVIDADES); return v === null ? this.BASE_NOVIDADES : +v || 0; }
+    catch (e) { return 999; }
+  },
+  /* Telas que este aparelho ainda não viu (só para quem já viu a apresentação). */
+  novidades() {
+    if (this.precisa()) return [];
+    const vistas = this.novidadesVistas();
+    return this.telasTodas().filter(t => (t.nova || 0) > vistas);
   },
 
   telas() {
+    if (!this.modoNovidades) return this.telasTodas();
+    const n = this.novidades();
+    return [{
+      id: 'capa-novidades',
+      arte: `<div class="tut-logo tut-logo-novo"><span>✨</span></div>`,
+      titulo: 'Novidades do Prumo',
+      texto: n.length === 1 ? 'Tem <strong>uma coisa nova</strong>. Passe para ver como funciona.'
+                            : 'Tem <strong>' + n.length + ' coisas novas</strong>. Passe para ver como funcionam.'
+    }].concat(n);
+  },
+
+  telasTodas() {
     const nativo = typeof Avisos !== 'undefined' && Avisos.nativo;
+    const voz = typeof Esfera !== 'undefined' && Esfera.temVoz && Esfera.temVoz();
     const LOGO = '<svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 3.5h9M12 3.5v6"/><path d="M12 9.5l3.4 3.6L12 21l-3.4-7.9z" fill="#fff"/></svg>';
     const MIC = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg>';
     const SETA = '<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5"/></svg>';
@@ -41,6 +76,16 @@ const Tutorial = {
         texto: 'Seu caderninho de <strong>gastos, compromissos e tarefas</strong>. Você escreve do jeito que fala e o Prumo organiza tudo sozinho.'
       },
       {
+        id: 'esfera', nova: 21,
+        arte: `<div class="tut-esfera"><canvas aria-hidden="true"></canvas>
+                 <div class="tut-fala" id="tutFala"></div></div>`,
+        titulo: 'A tela Hoje é a esfera',
+        texto: (voz ? '<strong>Toque na esfera</strong> e fale o que precisa: ela pulsa enquanto ouve.'
+                    : 'A esfera fica na tela inicial: escreva na caixa lá em cima o que precisa.') +
+               ' Não há listas aqui: gastos ficam em <strong>Dinheiro</strong>, compromissos na <strong>Agenda</strong> e tarefas em <strong>Tarefas</strong>.'
+      },
+      {
+        id: 'digitar',
         arte: `<div class="tut-cartao"><div class="entrada">
                  <div class="tut-digitando" id="tutDigitando"></div>
                  ${nativo ? `<button type="button" class="voz" tabindex="-1" aria-hidden="true">${MIC}</button>` : ''}
@@ -73,10 +118,10 @@ const Tutorial = {
       },
       {
         arte: `<div class="tut-abas">
-                 ${aba('hoje', 'Hoje', 'o que tem para hoje e o que atrasou')}
+                 ${aba('hoje', 'Hoje', 'a esfera: toque e fale')}
                  ${aba('dinheiro', 'Dinheiro', 'quanto entrou, saiu e sobrou no mês')}
                  ${aba('agenda', 'Agenda', 'seus compromissos, dia a dia')}
-                 ${aba('tarefas', 'Tarefas', 'o que falta fazer e anotações')}
+                 ${aba('tarefas', 'Tarefas', 'o que falta, o que atrasou e anotações')}
                </div>`,
         titulo: 'Cada coisa no seu lugar',
         texto: 'As abas lá embaixo separam tudo. <strong>Toque em qualquer item</strong> para editar ou apagar, e na <strong>bolinha</strong> para marcar uma tarefa como feita.'
@@ -92,7 +137,7 @@ const Tutorial = {
                  </div>
                </div>`,
         titulo: 'Nada fica acumulado',
-        texto: 'Se algo passou da data, aparece uma faixa na aba Hoje. Toque nela e resolva <strong>uma coisa de cada vez</strong>: já fiz, amanhã, semana que vem ou apagar.' +
+        texto: 'Se algo passou da data, aparece uma faixa no alto da aba <strong>Tarefas</strong>. Toque nela e resolva <strong>uma coisa de cada vez</strong>: já fiz, amanhã, semana que vem ou apagar.' +
                (nativo ? ' Aos <strong>domingos à noite</strong> o Prumo lembra você.' : '')
       },
       nativo ? {
@@ -109,6 +154,19 @@ const Tutorial = {
         titulo: 'Avisos na hora certa',
         texto: 'Depois de anotar um compromisso, toque em <strong>“Pôr no calendário”</strong>: o calendário do celular avisa você na hora.'
       },
+      {
+        id: 'repete', nova: 20,
+        arte: `<div class="tut-repete">
+                 <div class="tut-repete-frase">“me lembre de beber água <b>a cada 20 minutos</b>”</div>
+                 <div class="tut-repete-lista" id="tutRepete"></div>
+               </div>`,
+        titulo: 'Lembretes que repetem',
+        texto: 'Diga <strong>“a cada 20 minutos”</strong>, <strong>“de meia em meia hora”</strong> ou <strong>“de hora em hora”</strong> e o Prumo ' +
+               (nativo ? 'manda uma notificação a cada vez. Toque em <strong>Parar</strong> ou <strong>Feito</strong> no próprio aviso.'
+                       : 'põe um aviso para cada vez no calendário do celular.') +
+               ' Vale por <strong>3 horas</strong>, ou diga até quando: <strong>“até as 18h”</strong>, <strong>“por 2 horas”</strong>, <strong>“o dia todo”</strong>.' +
+               (nativo ? ' Quer som de despertador? Diga <strong>“alarme a cada 30 minutos”</strong>.' : '')
+      },
       nativo ? {
         arte: `<div class="tut-widget">
                  <div class="tut-widget-textos"><strong>Gasto hoje: R$ 45,00</strong><span>📅 Dentista · hoje 15:00</span></div>
@@ -118,6 +176,16 @@ const Tutorial = {
         titulo: 'Anote sem abrir o app',
         texto: 'Ponha o <strong>widget</strong>: segure o dedo num espaço vazio da tela do celular → <strong>Widgets</strong> → Prumo. Ou segure o dedo no <strong>ícone do Prumo</strong> para Falar ou Anotar direto.'
       } : null,
+      nativo ? {
+        id: 'atualiza', nova: 22,
+        arte: `<div class="tut-atualiza">
+                 <div class="tut-atualiza-versoes"><span class="velha">1.21</span><span class="seta">→</span><span class="nova">1.22</span></div>
+                 <div class="tut-atualiza-barra"><i></i></div>
+                 <small>baixando em segundo plano… pronto ✓</small>
+               </div>`,
+        titulo: 'Sempre atualizado',
+        texto: 'O Prumo <strong>se atualiza sozinho</strong>: baixa a versão nova sem você perceber e, na próxima vez que abrir, já entra nela. Seus dados ficam. Com pressa? <strong>⚙ Ajustes → Atualizar agora</strong>.'
+      } : null,
       {
         arte: `<div class="tut-cofre">🔒</div>`,
         titulo: 'Seus dados ficam com você',
@@ -126,9 +194,13 @@ const Tutorial = {
     ].filter(Boolean);
   },
 
-  abrir() {
+  abrir(opcoes) {
     if (this.aberto) return;
+    this.modoNovidades = !!(opcoes && opcoes.novidades) && this.novidades().length > 0;
     const telas = this.telas();
+    this.ids = telas.map(t => t.id || '');
+    // Selo "Novo" nas telas recentes, para quem revê a apresentação pelo "?".
+    const mostrarNovo = !this.modoNovidades && !this.precisa(), vistas = this.novidadesVistas();
     this.total = telas.length;
     this.atual = 0;
     this.aberto = true;
@@ -137,12 +209,12 @@ const Tutorial = {
     el.className = 'tutorial';
     el.id = 'tutorial';
     el.setAttribute('role', 'dialog');
-    el.setAttribute('aria-label', 'Como usar o Prumo');
+    el.setAttribute('aria-label', this.modoNovidades ? 'Novidades do Prumo' : 'Como usar o Prumo');
     el.innerHTML = `
       <div class="tut-topo"><span class="tut-passo" id="tutPasso"></span>
         <button type="button" class="tut-pular" data-tut="pular">Pular</button></div>
       <div class="tut-trilho" id="tutTrilho">
-        ${telas.map((t, n) => `<section class="tut-slide" data-n="${n}">
+        ${telas.map((t, n) => `<section class="tut-slide" data-n="${n}" data-id="${t.id || ''}">${t.nova && mostrarNovo && t.nova > vistas ? '<span class="tut-selo-novo">Novo</span>' : ''}
             <div class="tut-arte">${t.arte}</div>
             <h2>${t.titulo}</h2><p>${t.texto}</p>
           </section>`).join('')}
@@ -205,7 +277,7 @@ const Tutorial = {
     document.getElementById('tutPasso').textContent = (n + 1) + ' de ' + this.total;
     document.querySelectorAll('.tut-ponto').forEach((p, i) => p.classList.toggle('ativo', i === n));
     document.getElementById('tutVoltar').style.visibility = n === 0 ? 'hidden' : 'visible';
-    document.getElementById('tutProximo').textContent = ultimo ? 'Começar a usar' : (n === 0 ? 'Vamos lá' : 'Próximo');
+    document.getElementById('tutProximo').textContent = ultimo ? (this.modoNovidades ? 'Entendi' : 'Começar a usar') : (n === 0 ? 'Vamos lá' : 'Próximo');
     document.querySelector('.tut-pular').style.visibility = ultimo ? 'hidden' : 'visible';
 
     // As linhas da tela "Ele entende" entram uma a uma sempre que se chega nela.
@@ -213,7 +285,63 @@ const Tutorial = {
       if (i !== n) return;
       s.querySelectorAll('.tut-linha').forEach(l => { l.style.animationName = 'none'; void l.offsetWidth; l.style.animationName = ''; });
     });
-    this.digitar(n === 1);
+    const id = this.ids[n];
+    this.digitar(id === 'digitar');
+    this.animarRepete(id === 'repete');
+    if (id === 'esfera') this.ligarEsfera(n);
+  },
+
+  /* A esfera de verdade (a mesma da tela Hoje) desenhada na tela do tutorial,
+     com frases de exemplo aparecendo embaixo como se alguém falasse. */
+  ligarEsfera(n) {
+    const slide = document.querySelector('.tut-slide[data-n="' + n + '"]');
+    const canvas = slide && slide.querySelector('canvas');
+    if (canvas && typeof Esfera !== 'undefined' && Esfera.prepararTela) {
+      try { Esfera.prepararTela(canvas, () => this.aberto && this.atual === n); } catch (e) {}
+    }
+    const fala = document.getElementById('tutFala');
+    if (!fala) return;
+    const frases = ['“dentista quinta às 15h”', '“paguei 32 no almoço”', '“me lembre de ligar pro João a cada hora”'];
+    let i = 0;
+    const trocar = () => {
+      if (!this.aberto || this.atual !== n) return;
+      fala.classList.remove('entra'); void fala.offsetWidth;
+      fala.textContent = frases[i++ % frases.length];
+      fala.classList.add('entra');
+      this.relogioFala = setTimeout(trocar, 2600);
+    };
+    clearTimeout(this.relogioFala);
+    trocar();
+  },
+
+  /* Tela "Lembretes que repetem": notificações chegando de 20 em 20 min (acelerado). */
+  animarRepete(ligar) {
+    clearTimeout(this.relogioRepete);
+    const lista = document.getElementById('tutRepete');
+    if (!ligar || !lista) return;
+    const nativo = typeof Avisos !== 'undefined' && Avisos.nativo;
+    const horas = ['14:20', '14:40', '15:00', '15:20'];
+    let k = 0;
+    lista.innerHTML = '';
+    const passo = () => {
+      if (k >= horas.length) {                       // recomeça depois de uma pausa
+        this.relogioRepete = setTimeout(() => { lista.innerHTML = ''; k = 0; passo(); }, 2200);
+        return;
+      }
+      const ultimo = k === horas.length - 1;
+      const div = document.createElement('div');
+      div.className = 'tut-aviso tut-aviso-repete' + (ultimo ? ' parou' : '');
+      div.dataset.tipo = 'compromisso';
+      div.innerHTML = `<div class="selo"><span class="tut-sino">🔁</span></div>
+        <div><strong>Beber água</strong><span>${ultimo ? 'Você tocou em Feito ✓' : 'Lembrete a cada 20 min'}</span>
+        ${nativo && !ultimo ? '<span class="tut-aviso-bts"><b>Parar</b><b>Feito</b></span>' : ''}</div>
+        <small>${horas[k]}</small>`;
+      lista.prepend(div);
+      while (lista.children.length > 3) lista.lastChild.remove();
+      k++;
+      this.relogioRepete = setTimeout(passo, 1500);
+    };
+    this.relogioRepete = setTimeout(passo, 500);
   },
 
   /* Máquina de escrever da tela 2: frases de exemplo aparecendo letra a letra. */
@@ -243,7 +371,7 @@ const Tutorial = {
 
   fechar() {
     const el = document.getElementById('tutorial');
-    clearTimeout(this.relogio);
+    clearTimeout(this.relogio); clearTimeout(this.relogioRepete); clearTimeout(this.relogioFala);
     this.marcarVisto();
     this.aberto = false;
     document.body.style.overflow = '';

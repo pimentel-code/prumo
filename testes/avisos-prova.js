@@ -196,8 +196,15 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
     Array.isArray(widget.proximos) && widget.proximos.some(p => p.titulo === 'Dentista'));
   await prova('widget conta o que está atrasado', () => widget.atrasados >= 1);
 
-  await prova('tutorial no app Android tem a tela do widget (9 telas)', () =>
-    Tutorial.telas().length === 9 && Tutorial.telas().some(t => t.titulo === 'Anote sem abrir o app'));
+  await prova('tutorial no app Android tem widget, lembrete repetido e atualização (12 telas)', () =>
+    Tutorial.telas().length === 12 && ['Anote sem abrir o app', 'Lembretes que repetem', 'Sempre atualizado', 'A tela Hoje é a esfera']
+      .every(t => Tutorial.telas().some(x => x.titulo === t)));
+  await prova('novidades: quem viu antes recebe as 3 telas novas; depois de ver, nenhuma', () => {
+    localStorage.setItem(Tutorial.CHAVE, '1'); localStorage.removeItem(Tutorial.CHAVE_NOVIDADES);
+    const antes = Tutorial.novidades().map(t => t.id).join(',');
+    Tutorial.marcarVisto();
+    return antes === 'esfera,repete,atualiza' && Tutorial.novidades().length === 0;
+  });
 
   falado = 'gastei 30 na padaria';
   await prova('microfone devolve o texto falado', async () => (await Avisos.ouvir()) === 'gastei 30 na padaria');
