@@ -445,6 +445,72 @@ function acharData(f, hoje) {
   return null;
 }
 
+/* ---------- dias da semana que repetem ---------- */
+
+/* "de segunda a sexta", "dias úteis", "todo dia", "fim de semana",
+   "toda segunda e quarta", "às terças e quintas", "seg, qua e sex".
+   Devolve a lista de dias (0 = domingo … 6 = sábado) ou null.
+   Um dia só sem "toda"/plural ("na segunda") é data, não repetição. */
+const DIAS_ABREVIADOS = { dom: 0, seg: 1, ter: 2, qua: 3, qui: 4, sex: 5, sab: 6 };
+function acharSemana(f) {
+  const nome = '(domingo|segunda|terca|quarta|quinta|sexta|sabado|dom|seg|ter|qua|qui|sex|sab)(s)?(?:[\\s-]feiras?)?';
+  const dia = t => t in DIAS_SEMANA ? DIAS_SEMANA[t] : DIAS_ABREVIADOS[t];
+  const marca = (m, dias) => { f.marcar(m.index, m.index + m[0].length); return [...new Set(dias)].sort((a, b) => a - b); };
+  let m;
+  // "de segunda a sexta", "segunda à sexta", "seg a sex", "de segunda até sábado"
+  m = f.achar(new RegExp('\\b(?:(?:toda|todas)\\s+(?:as\\s+)?|de\\s+)?' + nome + '\\s+(?:a|ate)\\s+(?:a\\s+)?' + nome + '\\b'));
+  if (m) {
+    const ini = dia(m[1]), fim = dia(m[3]), dias = [];
+    for (let d = ini; ; d = (d + 1) % 7) { dias.push(d); if (d === fim || dias.length > 7) break; }
+    return marca(m, dias);
+  }
+  m = f.achar(/\b(?:(?:em|nos|nas|todos\s+os|todo|durante\s+os|so\s+nos|so\s+em)\s+)?dias?\s+(?:uteis|util|de\s+semana)\b|\bdurante\s+a\s+semana\b/);
+  if (m) return marca(m, [1, 2, 3, 4, 5]);
+  m = f.achar(/\b(?:(?:todo|nos|no|aos|ao|em|todo\s+o|todos\s+os|durante\s+o|so\s+no|so\s+nos)\s+)?(?:fim|fins|final|finais)\s+de\s+semana\b/);
+  if (m) return marca(m, [0, 6]);
+  m = f.achar(/\b(?:todos\s+os\s+dias|todo\s+(?:santo\s+)?dia|diariamente|todo\s+dia\s+da\s+semana)\b(?!\s*\d)/);
+  if (m) return marca(m, [0, 1, 2, 3, 4, 5, 6]);
+  // lista: "toda segunda e quarta", "às terças e quintas", "segundas, quartas e sextas"
+  const lista = new RegExp('\\b((?:toda|todas|todo|todos)\\s+(?:as\\s+|os\\s+)?|as\\s+|aos\\s+|nas\\s+|nos\\s+)?' + nome +
+                           '((?:\\s*(?:,|e)\\s*(?:as\\s+|aos\\s+|nas\\s+|nos\\s+)?' + nome.replace(/\((?!\?)/g, '(?:') + ')*)');
+  m = f.achar(lista);
+  if (m) {
+    const resto = m[4] || '';
+    const nomes = [m[2]].concat((resto.match(/(domingo|segunda|terca|quarta|quinta|sexta|sabado|dom|seg|ter|qua|qui|sex|sab)/g) || []));
+    const plural = !!m[3] || /s(?:[\s-]feiras?)?\b/.test(resto.trim().split(/\s+/).pop() || '') || /feiras/.test(m[0]);
+    const toda = m[1] && /^tod/.test(m[1]);
+    const varios = nomes.length >= 2 && (plural || toda || /^(as|aos|nas|nos)\s/.test(m[1] || ''));
+    if (toda || (plural && m[1] && !/^(nas|nos)\s/.test(m[1]) || (plural && !m[1])) || varios) {
+      // "na sexta" e "sexta e sábado" (sem plural) ficam como data
+      if (toda || plural || varios) return marca(m, nomes.map(dia));
+    }
+  }
+  return null;
+}
+
+/* Próxima vez que cai num desses dias, depois de `desde`. Sem hora: o dia inteiro vale. */
+function proximaDaSemana(semana, hora, desde) {
+  const [hh, mm] = (hora || '23:59').split(':').map(Number);
+  for (let k = 0; k <= 7; k++) {
+    const d = new Date(desde.getFullYear(), desde.getMonth(), desde.getDate() + k, hh, mm);
+    if (semana.includes(d.getDay()) && d > desde) return d;
+  }
+  return null;
+}
+
+/* [1,2,3,4,5] → "de segunda a sexta"; [0..6] → "todo dia"; [0,6] → "fim de semana". */
+function rotuloSemana(semana) {
+  const nomes = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+  const l = [...semana].sort((a, b) => a - b), k = l.join();
+  if (k === '0,1,2,3,4,5,6') return 'todo dia';
+  if (k === '1,2,3,4,5') return 'de segunda a sexta';
+  if (k === '1,2,3,4,5,6') return 'de segunda a sábado';
+  if (k === '0,6') return 'no fim de semana';
+  const n = l.map(d => nomes[d]);
+  const inteiro = ['todo domingo', 'toda segunda', 'toda terça', 'toda quarta', 'toda quinta', 'toda sexta', 'todo sábado'];
+  return n.length === 1 ? inteiro[l[0]] : n.slice(0, -1).join(', ') + ' e ' + n[n.length - 1];
+}
+
 /* ---------- valor ---------- */
 
 function numeroBR(txt) {
@@ -613,6 +679,8 @@ function interpretar(textoOriginal, opcoes = {}) {
   // "daqui a 40 minutos" antes da hora: senão o "2 horas" de "daqui a 2 horas" vira 02:00.
   const daqui = acharDaqui(f, agora);
   const hora = daqui ? daqui.hora : acharHora(f);
+  // "de segunda a sexta", "todo dia": antes da data, senão "segunda" vira um dia só.
+  const semana = (daqui || intervalo || parcelas || repete !== null) ? null : acharSemana(f);
   const data = daqui ? daqui.data : acharData(f, hoje);
   // "de manhã", "à noite": só quando não houve hora dita.
   const periodo = (hora || daqui || intervalo) ? null : acharPeriodo(f);
@@ -629,7 +697,7 @@ function interpretar(textoOriginal, opcoes = {}) {
   let tipo;
   if (receita && valor !== null) tipo = 'receita';
   else if (gasto && valor !== null) tipo = 'gasto';
-  else if (hora || intervalo) tipo = 'compromisso';
+  else if (hora || intervalo || semana) tipo = 'compromisso';
   else if (compromisso) tipo = 'compromisso';
   else if (tarefa) tipo = 'tarefa';
   else if (valor !== null) tipo = 'gasto';
@@ -682,6 +750,15 @@ function interpretar(textoOriginal, opcoes = {}) {
       const [a, me, di] = item.data.split('-').map(Number);
       item.data = paraISO(new Date(a + 1, me - 1, di));
     }
+  }
+
+  // Repete nos dias da semana: a data é a PRÓXIMA vez (hoje, se ainda não passou a hora).
+  if (semana && (tipo === 'compromisso' || tipo === 'tarefa')) {
+    item.semana = semana;
+    const ref = opcoes.agora || hoje;
+    const desde = item.data ? new Date(Math.max(ref, new Date(item.data + 'T00:00') - 1)) : ref;
+    const prox = proximaDaSemana(semana, item.hora, desde);
+    if (prox) item.data = paraISO(prox);
   }
 
   // Marcou hora mas não disse o dia: é hoje.

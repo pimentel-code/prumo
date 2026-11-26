@@ -53,6 +53,10 @@ function blocoEvento(item, inicio, fim, gatilho) {
                   'SUMMARY:' + escaparICS(item.titulo)];
   if (fim) linhas.push('DTSTART:' + local(inicio), 'DTEND:' + local(fim));
   else linhas.push('DTSTART;VALUE=DATE:' + dia(inicio), 'DTEND;VALUE=DATE:' + dia(new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + 1)));
+  // "de segunda a sexta": o Calendário do celular repete sozinho, toda semana.
+  if (item.semana && item.semana.length && !item.repetir) {
+    linhas.push('RRULE:FREQ=WEEKLY;BYDAY=' + item.semana.map(d => ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][d]).join(','));
+  }
   if (item.texto && item.texto !== item.titulo) linhas.push('DESCRIPTION:' + escaparICS(item.texto));
   for (const g of [].concat(gatilho)) {
     linhas.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + escaparICS(item.titulo),

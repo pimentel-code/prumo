@@ -68,13 +68,30 @@ const NATURAIS = [
   // hora de 1 a 5 sem período é da tarde, menos para acordar/alarme
   ["alarme às 3", {"tipo":"compromisso","titulo":"Alarme","data":"2026-11-25","hora":"03:00"}],
   ["dentista às 6", {"tipo":"compromisso","titulo":"Dentista","data":"2026-11-25","hora":"06:00"}],
-  ["reunião às 2 da manhã", {"tipo":"compromisso","titulo":"Reunião","data":"2026-11-25","hora":"02:00"}]
+  ["reunião às 2 da manhã", {"tipo":"compromisso","titulo":"Reunião","data":"2026-11-25","hora":"02:00"}],
+  // dias da semana que repetem (alarme diário) — hoje é quarta 25/11, 9h
+  ["alarme às 4h45 de segunda a sexta", {"tipo":"compromisso","titulo":"Alarme","data":"2026-11-26","hora":"04:45","semana":[1,2,3,4,5]}],
+  ["me acorda 4:45 de segunda à sexta-feira", {"hora":"04:45","semana":[1,2,3,4,5]}],
+  ["despertador 4h45 dias úteis", {"hora":"04:45","semana":[1,2,3,4,5]}],
+  ["alarme 4h45 seg a sex", {"hora":"04:45","semana":[1,2,3,4,5]}],
+  ["alarme às quatro e quarenta e cinco de segunda a sexta", {"hora":"04:45","semana":[1,2,3,4,5]}],
+  ["me acorda às 5 e meia de segunda a sábado", {"hora":"05:30","semana":[1,2,3,4,5,6],"data":"2026-11-26"}],
+  ["alarme 6h todos os dias", {"hora":"06:00","semana":[0,1,2,3,4,5,6],"data":"2026-11-26"}],
+  ["alarme às sete no fim de semana", {"titulo":"Alarme","hora":"07:00","semana":[0,6],"data":"2026-11-28"}],
+  ["remédio todo dia às 22h", {"titulo":"Remédio","hora":"22:00","semana":[0,1,2,3,4,5,6],"data":"2026-11-25"}],
+  ["toda segunda e quarta academia às 19h", {"titulo":"Academia","hora":"19:00","semana":[1,3],"data":"2026-11-25"}],
+  ["às terças e quintas inglês às 18h", {"titulo":"Inglês","hora":"18:00","semana":[2,4],"data":"2026-11-26"}],
+  ["toda sexta futebol às 20h", {"titulo":"Futebol","semana":[5],"data":"2026-11-27"}],
+  ["segundas, quartas e sextas pilates às 7h", {"titulo":"Pilates","semana":[1,3,5],"data":"2026-11-27"}],
+  // um dia só NÃO repete
+  ["dentista na sexta às 15h", {"titulo":"Dentista","data":"2026-11-27","hora":"15:00"}],
+  ["pagar a luz segunda", {"tipo":"tarefa","data":"2026-11-30"}]
 ];
 
 let falhas = 0;
 for (const [frase, esperado] of NATURAIS) {
   const r = interpretar(frase, { agora: AGORA_N, hoje: AGORA_N });
-  const errado = Object.keys(esperado).filter(k => r[k] !== esperado[k]);
+  const errado = Object.keys(esperado).filter(k => JSON.stringify(r[k]) !== JSON.stringify(esperado[k]));
   if (errado.length) {
     falhas++;
     print('FALHOU  ' + frase + '\n        ' + errado.map(k => k + ': veio ' + JSON.stringify(r[k]) + ', esperava ' + JSON.stringify(esperado[k])).join('; '));

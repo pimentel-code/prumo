@@ -640,3 +640,25 @@ test('site: no meio de uma anotação não recarrega (espera sair e voltar)', as
   expect(await page.evaluate(() => Miolo._recarregarQuandoPuder)).toBe(true);
   await expect(page.locator('#campoEntrada')).toHaveValue('escrevendo algo');
 });
+
+test('"alarme 4h45 de segunda a sexta": dias marcados na confirmação e 🔁 na lista', async ({ page }) => {
+  await anotar(page, 'alarme 4h45 de segunda a sexta');
+  await expect(page.locator('#c_hora')).toHaveValue('04:45');
+  await expect(page.locator('#c_dias .dia-sem.ligado')).toHaveCount(5);
+  // tirar a sexta ali mesmo, sem perder o resto
+  await page.locator('#c_dias .dia-sem[data-d="5"]').click();
+  await expect(page.locator('#c_dias .dia-sem.ligado')).toHaveCount(4);
+  await page.locator('#c_dias .dia-sem[data-d="5"]').click();
+  await guardar(page);
+  await expect(page.locator('body')).toContainText('🔁 de segunda a sexta');
+  const it = await page.evaluate(() => Dados.itens().find(i => i.semana));
+  expect(it.semana).toEqual([1, 2, 3, 4, 5]);
+});
+
+test('botão "Repetir nos dias" num compromisso com hora', async ({ page }) => {
+  await anotar(page, 'academia às 19h');
+  await page.click('[data-acao="add-semana"]');
+  await expect(page.locator('#c_dias .dia-sem.ligado')).toHaveCount(5);
+  await guardar(page);
+  await expect(page.locator('body')).toContainText('🔁 de segunda a sexta');
+});

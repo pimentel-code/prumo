@@ -287,14 +287,24 @@ function camposHTML(item, p) {
   if (temHora) {
     h += `<div class="campo"><label for="${p}hora">Hora</label>
           <input id="${p}hora" type="time" value="${item.hora || ''}"></div>`;
+    if (item.semana || p === 'e_') h += camposSemana(item, p);
     if (item.repetir || p === 'e_') h += camposRepetir(item, p);
-    else if (item.hora) h += `<div class="extras"><button type="button" class="mini" data-acao="add-repetir">🔁 Lembrar várias vezes</button></div>`;
+    else if (item.hora) h += `<div class="extras">${item.semana ? '' : '<button type="button" class="mini" data-acao="add-semana">📆 Repetir nos dias</button>'}<button type="button" class="mini" data-acao="add-repetir">🔁 Lembrar várias vezes</button></div>`;
     if (Avisos.nativo) {
       h += `<label class="campo-alarme"><input id="${p}alarme" type="checkbox"${item.alarme ? ' checked' : ''}>
             <span>⏰ Tocar como <strong>alarme</strong> (som até você parar)</span></label>`;
     }
   }
   return h + '</div>';
+}
+
+/* "Repete": os dias da semana (D S T Q Q S S). Nenhum marcado = só uma vez. */
+function camposSemana(item, p) {
+  const sem = item.semana || [];
+  const letras = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S'], nomes = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+  return `<div class="campo"><label>Repete</label><div class="dias-semana" id="${p}dias">` +
+    [1, 2, 3, 4, 5, 6, 0].map(d => `<button type="button" class="dia-sem${sem.includes(d) ? ' ligado' : ''}" data-acao="dia-semana" data-d="${d}" aria-pressed="${sem.includes(d)}" aria-label="${nomes[d]}">${letras[d]}</button>`).join('') +
+    '</div></div>';
 }
 
 /* "Lembrar a cada" + "Até": a série de avisos de um compromisso. */
@@ -344,6 +354,10 @@ function lerCampos(item, p) {
       novo.repetir = { cada, ate: fimDaSerie(novo.data, novo.hora, pega('ate') ? pega('ate').value : '', cada) };
       novo.naHora = true;
     } else novo.repetir = null;
+  }
+  if (pega('dias')) {
+    const dias = [...pega('dias').querySelectorAll('.dia-sem.ligado')].map(b => Number(b.dataset.d)).sort((a, b) => a - b);
+    if (dias.length) novo.semana = dias; else delete novo.semana;
   }
   if (pega('alarme')) novo.alarme = !!pega('alarme').checked;
   else if (novo.tipo !== 'compromisso') delete novo.alarme;
@@ -397,6 +411,8 @@ function recadoHTML() {
       : (Avisos.permitido === false && !item.alarme) ? 'Guardado, mas os avisos estão bloqueados no Android.'
       : item.repetir ? 'Guardado. ' + (item.alarme ? 'Alarme' : 'Aviso') + ' a cada ' + rotuloCada(item.repetir.cada) +
           ', ' + fmtQuandoAviso(quando).replace(' às ', ' das ') + ' até as ' + item.repetir.ate.slice(11, 16) + '.'
+      : (item.semana && item.semana.length) ? 'Guardado. ' + (item.alarme ? 'Alarme' : 'Aviso') + ' ' + rotuloSemana(item.semana) +
+          (item.hora ? ' às ' + item.hora : '') + '. O próximo: ' + fmtQuandoAviso(quando) + '.'
       : item.alarme ? 'Guardado. Alarme ' + fmtQuandoAviso(quando) + '.'
       : avisosGuardado(Avisos.horarios(item));
     const botao = (Avisos.permitido === false && !(item && item.alarme))
@@ -513,6 +529,7 @@ function itemHTML(item, op) {
   }
 
   if (Avisos.nativo && op.calendario && Avisos.quando(item)) info.push((item.alarme ? '⏰ ' : '🔔 ') + esc(fmtQuandoAviso(Avisos.quando(item))));
+  if (item.semana && item.semana.length) info.push('🔁 ' + esc(rotuloSemana(item.semana)));
   if (item.repetir && !item.feito && (!Avisos.nativo || Avisos.quando(item))) info.push('🔁 a cada ' + esc(rotuloCada(item.repetir.cada)) + ' até ' + esc(item.repetir.ate.slice(11, 16)));
   const calendario = (!Avisos.nativo && op.calendario && item.data && !item.feito && item.id !== App.recado)
     ? `<button class="mini" data-acao="calendario" data-id="${item.id}">Pôr no calendário</button>` : '';
@@ -1149,6 +1166,7 @@ function importarBackup() {
 /* ---------- render ---------- */
 
 function render() {
+  if (typeof Avisos !== 'undefined' && Avisos.rolarSemanais) Avisos.rolarSemanais();   // "seg a sex": data vai p/ a próxima vez
   const conteudo = document.getElementById('conteudo');
   let tela;
   if (App.busca !== null) tela = telaBusca();
@@ -1208,6 +1226,16 @@ document.addEventListener('click', evento => {
     Dados.salvar(); return painelAjustes();
   }
 
+  if (acao === 'add-semana') {
+    App.rascunho = lerCampos(App.rascunho, 'c_');
+    App.rascunho.semana = [1, 2, 3, 4, 5];
+    renderConfirma(); return;
+  }
+  if (acao === 'dia-semana') {                       // liga/desliga o dia ali mesmo, sem perder o que já foi digitado
+    const liga = !alvo.classList.contains('ligado');
+    alvo.classList.toggle('ligado', liga); alvo.setAttribute('aria-pressed', String(liga));
+    return;
+  }
   if (acao === 'add-repetir') {
     App.rascunho = lerCampos(App.rascunho, 'c_');
     if (App.rascunho.data && App.rascunho.hora) {
@@ -1270,6 +1298,7 @@ document.addEventListener('click', evento => {
 
   if (acao === 'feito') {
     const item = Dados.itens().find(i => i.id === id);
+    if (item.semana && item.semana.length && !item.feito) { Avisos.pularSemanal(item); return render(); }   // repete: vai p/ a próxima
     Dados.atualizar(id, { feito: !item.feito });
     return render();
   }

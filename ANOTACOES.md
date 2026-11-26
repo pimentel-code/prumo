@@ -361,3 +361,21 @@ O site (iPhone) continua igual, com o "Pôr no calendário".
 - testes/naturais.js: 62 frases faladas com o resultado esperado (roda no rodar.sh e TRAVA a publicação se falhar).
 - Tutorial: tela nova "Fale do seu jeito" (nova: 27). Exemplo da caixa vazia: "preciso estar às duas da tarde no médico".
 - Fica de fora (não tem como): "comprar pão quando voltar" não vira horário.
+
+## 25/11/2026 — alarme/compromisso que repete nos dias da semana (1.28, TESTE, só miolo)
+- Pedido dele: "alarme às 4h45 de segunda a sexta", falando ou digitando.
+- interpretador.js: acharSemana (antes da data) → item.semana = [0..6] (0 = domingo). Entende: "de segunda a sexta",
+  "seg a sex", "dias úteis", "durante a semana", "todo dia/todos os dias/diariamente" (sem número depois — "todo dia 5" é
+  conta fixa), "fim de semana", "toda segunda e quarta", "às terças e quintas", "segundas, quartas e sextas", "toda sexta".
+  Um dia só sem "toda"/plural ("na sexta", "pagar a luz segunda") continua data comum. data = a PRÓXIMA vez.
+  proximaDaSemana() e rotuloSemana() ficam no interpretador (usados por avisos/app). Constante DIAS_ABREVIADOS
+  (DIA_CURTO já existe no app.js — nome repetido quebra tudo).
+- avisos.js: semanais() agenda as próximas 6 semanas (DIAS_A_FRENTE 42, até 31 por item) — alarme na hora, compromisso
+  com as antecedências (1 h e 30 min). Sem mexer no Java: a lista é renovada a cada abertura do app/salvamento.
+  LIMITE: se o app ficar 6 semanas sem abrir, os alarmes acabam (para resolver de vez: o Java reagendar sozinho = APK).
+  rolarSemanais() (no render e no reagendarTudo): passou a vez → data vai para a próxima; não conta como "ficou para trás".
+  "Feito" (lista ou notificação) num semanal = pularSemanal (vai para a próxima vez); para acabar, Apagar no Editar.
+- Confirmação/Editar: campo "Repete" com D S T Q Q S S (camposSemana, liga/desliga sem re-render); botão
+  "📆 Repetir nos dias" em compromisso com hora. Lista: "🔁 de segunda a sexta". Recado: "Alarme de segunda a sexta às 04:45. O próximo: amanhã às 4:45."
+- iPhone (.ics): RRULE:FREQ=WEEKLY;BYDAY=… — o Calendário repete sozinho.
+- Provas: +15 frases em naturais.js (77), +8 em avisos-prova, +2 no navegador.

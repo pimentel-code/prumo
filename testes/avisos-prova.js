@@ -310,6 +310,39 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
     return (ics.match(/BEGIN:VALARM/g) || []).length === 2 && ics.includes('TRIGGER;RELATED=START:-PT60M') && ics.includes('TRIGGER;RELATED=START:-PT30M');
   });
 
+  // ---- alarme de segunda a sexta (25/11/2026) ----
+  const sem = Avisos.ajustarAlarme(Object.assign(interpretar('alarme às 4h45 de segunda a sexta'), {}));
+  const al = novo(sem);
+  await Avisos.reagendarTudo();
+  const doAlarme = () => (globalThis.alarmes || []).filter(a => a.titulo === al.titulo && a.texto && a.texto.includes('4:45'));
+  await prova('"alarme às 4h45 de segunda a sexta" vira alarme que repete', () => al.alarme === true && al.semana.join() === '1,2,3,4,5');
+  await prova('agenda as próximas 6 semanas de alarmes, só de segunda a sexta, às 4:45', () => {
+    const l = doAlarme(); const dias = l.map(a => new Date(a.at));
+    return l.length >= 28 && l.length <= 31 && dias.every(d => d.getDay() >= 1 && d.getDay() <= 5 && d.getHours() === 4 && d.getMinutes() === 45) &&
+           new Set(l.map(a => a.id)).size === l.length;
+  });
+  await prova('nenhum alarme no sábado nem no domingo', () => doAlarme().every(a => ![0, 6].includes(new Date(a.at).getDay())));
+  Dados.atualizar(al.id, { data: '2026-01-05' });    // como se a última vez tivesse sido no passado
+  Avisos.rolarSemanais();
+  await prova('depois que toca, a data vai sozinha para o próximo dia útil (não fica "para trás")', () => {
+    const it = Dados.itens().find(i => i.id === al.id), d = dataHoraDe(it);
+    return d > new Date() && d.getDay() >= 1 && d.getDay() <= 5 && !it.feito;
+  });
+  await prova('não entra na conta do que ficou para trás', () => !Dados.itens().some(i => i.id === al.id && i.data < iso(new Date())));
+  const antesFeito = Dados.itens().find(i => i.id === al.id).data;
+  Avisos.aoTocar({ actionId: 'feito', notification: { extra: { id: al.id } } });
+  await prova('"Feito" num que repete pula para a próxima vez, sem encerrar', () => {
+    const it = Dados.itens().find(i => i.id === al.id); return !it.feito && it.data > antesFeito;
+  });
+  await prova('ICS do iPhone: repete toda semana de segunda a sexta (RRULE)', () =>
+    montarICS(Object.assign({}, al, { alarme: false }), [60, 30]).includes('RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR'));
+  const aca = novo(Object.assign(interpretar('toda segunda e quarta academia às 19h'), {}));
+  await prova('compromisso semanal (não alarme) avisa 1 h e 30 min antes em cada dia', () => {
+    const h = Avisos.horarios(aca).slice(0, 4);
+    return h.length === 4 && h.every(t => [1, 3].includes(t.getDay()) && ((t.getHours() === 18 && [0, 30].includes(t.getMinutes()))));
+  });
+  Dados.remover(al.id); Dados.remover(aca.id);
+
   permissao = 'denied'; Avisos.permitido = false;
   await Avisos.reagendarTudo();
   await prova('sem permissão não agenda nada', () => agendados.length === 0);

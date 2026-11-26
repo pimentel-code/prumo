@@ -144,7 +144,7 @@ const Tutorial = {
                <div class="tut-aviso" data-tipo="tarefa"><div class="selo">⏰</div>
                  <div><strong>Alarme · 06:00</strong><span>Toca até você parar</span></div><small>amanhã</small></div>`,
         titulo: 'Avisos na hora certa',
-        texto: 'O Prumo <strong>avisa sozinho</strong>, mesmo com o celular bloqueado, e dá para responder no próprio aviso: <strong>Feito</strong>, <strong>Amanhã</strong> ou <strong>Paguei</strong>. Para despertar, escreva <strong>“me acorda às 6h”</strong>.'
+        texto: 'O Prumo <strong>avisa sozinho</strong>, mesmo com o celular bloqueado, e dá para responder no próprio aviso: <strong>Feito</strong>, <strong>Amanhã</strong> ou <strong>Paguei</strong>. Para despertar, escreva <strong>“me acorda às 6h”</strong> — ou, para todo dia útil, <strong>“alarme 4h45 de segunda a sexta”</strong>.'
       } : {
         arte: `<div class="tut-aviso" data-tipo="compromisso"><div class="selo"><span class="tut-sino">🔔</span></div>
                  <div><strong>Dentista</strong><span>Hoje às 15:00 · Calendário</span></div><small>agora</small></div>
