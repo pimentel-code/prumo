@@ -1,12 +1,12 @@
 {
   "_leia": "Versões do Prumo lidas pelo app (sem usar a API do GitHub, que tem limite de 60/h). Gerado pelo publicar-apk.sh (teste) e aprovar-apk.sh (estavel).",
   "estavel": {
-    "codigo": 26,
-    "nativo": 18,
-    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.26/Prumo.apk",
-    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.26/miolo.zip",
-    "sha256": "0f71a9017bc2fde15f919c627ddef6f314f26c6e0901186da3c1968c44914d25",
-    "notas": "Notificações só com a mensagem principal (o título) e os botões"
+    "codigo": 32,
+    "nativo": 31,
+    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.32/Prumo.apk",
+    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.32/miolo.zip",
+    "sha256": "6392ec0344a29d77fed8f9c0dffe92978cbaaa1bf4fdd1cf3f5c7f8180b255cb",
+    "notas": "Telas mais limpas: sem 'Entendi assim' na confirmação, sem recado depois de guardar, e o que já passou hoje sai da Agenda"
   },
   "teste": {
     "codigo": 32,
