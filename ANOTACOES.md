@@ -417,3 +417,13 @@ O site (iPhone) continua igual, com o "Pôr no calendário".
   (App resume) refaz tudo. definir() do Java ignora séries com ação pendente (o app ainda não viu o "Parar").
 - Provas: +7 em avisos-prova (stub com definirLembretes/acoesLembrete adicionado só nessa seção; as antigas seguem testando o caminho velho).
 - NÃO testado em aparelho: substituição, sumir sozinho, Parar/Feito com o app fechado.
+
+## 25/11/2026 — telas mais limpas (1.32, TESTE, só miolo)
+- Pedido dele (prints): retirar o cabeçalho "Entendi assim" + os botões de tipo da confirmação → ESCONDIDOS (hidden),
+  a troca de tipo continua no código (regra: retirar = esconder). Tutorial "Ele entende sozinho" agora diz "corrija nos campos".
+- Recado comum depois de guardar ("Guardado. Alarme … O próximo: amanhã") escondido: recadoHTML devolve '' quando não há o que
+  fazer; continua aparecendo quando pede atenção (hora já passou, avisos bloqueados, tela do alarme bloqueada). textoRecado()
+  guarda a lógica. No site/iPhone o recado com "Pôr no calendário" continua (é o caminho do aviso lá).
+- Agenda: hoje, o que já passou (último horário vencido ou feito; menos os semanais, que rolam sozinhos) sai de "Hoje" e vai
+  para "Já passou". Os dois "Alarme" de hoje no print dele eram itens antigos de teste (04:45 e 04:55 de hoje, já tocados),
+  não cópias do alarme novo.

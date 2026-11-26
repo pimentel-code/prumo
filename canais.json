@@ -9,11 +9,11 @@
     "notas": "Notificações só com a mensagem principal (o título) e os botões"
   },
   "teste": {
-    "codigo": 31,
+    "codigo": 32,
     "nativo": 31,
-    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.31/Prumo.apk",
-    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.31/miolo.zip",
-    "sha256": "b179587921978471798f0ebde0b6063e4b29201ea5f5f5b0881646c531b6b755",
-    "notas": "Lembrete a cada X minutos não acumula mais: cada aviso substitui o anterior e some sozinho na metade do intervalo"
+    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.32/Prumo.apk",
+    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.32/miolo.zip",
+    "sha256": "6392ec0344a29d77fed8f9c0dffe92978cbaaa1bf4fdd1cf3f5c7f8180b255cb",
+    "notas": "Telas mais limpas: sem 'Entendi assim' na confirmação, sem recado depois de guardar, e o que já passou hoje sai da Agenda"
   }
 }

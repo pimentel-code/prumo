@@ -404,9 +404,10 @@ function renderConfirma() {
     `<button type="button" class="chip${t === r.tipo ? ' ativo' : ''}" data-acao="tipo" data-tipo="${t}">${TIPOS[t].nome}</button>`
   ).join('');
   alvo.innerHTML = `<div class="confirma">
-      <div class="confirma-cabeca">${seloHTML(r).replace('class="selo', 'data-tipo="' + r.tipo + '" class="selo')}
+      <!-- Cabeçalho "Entendi assim" e os tipos: ESCONDIDOS a pedido dele (25/11/2026); a troca de tipo continua no código. -->
+      <div class="confirma-cabeca" hidden>${seloHTML(r).replace('class="selo', 'data-tipo="' + r.tipo + '" class="selo')}
         <div><strong>Entendi assim</strong><br><span>Confira, mude o tipo se precisar, e guarde.</span></div></div>
-      <div class="confirma-tipos">${chips}</div>
+      <div class="confirma-tipos" hidden>${chips}</div>
       ${camposHTML(r, 'c_')}
       <div class="acoes">
         <button type="button" data-acao="cancelar">Cancelar</button>
@@ -431,6 +432,25 @@ function recadoHTML() {
     // App Android: o próprio Prumo avisa. Só conta quando vai tocar.
     const item = Dados.itens().find(i => i.id === App.recado);
     const quando = item && Avisos.quando(item);
+    // Recado comum ("Guardado. Alarme … O próximo: amanhã") ESCONDIDO a pedido dele (25/11/2026):
+    // só aparece quando pede atenção — hora já passou, avisos bloqueados ou tela do alarme bloqueada.
+    const texto = textoRecado(item, quando);
+    const botao = (Avisos.permitido === false && !(item && item.alarme))
+      ? `<button class="mini" data-acao="permitir-avisos">Liberar avisos</button>`
+      : (item && item.alarme && quando && !Avisos.sobrepor)
+      ? `<button class="mini" data-acao="sobrepor">Liberar tela do alarme</button>` : '';
+    if (quando && !botao && Avisos.permitido !== false) return '';
+    return `<div class="recado">
+      <div class="recado-texto">${esc(texto)}</div>
+      ${botao}
+      <button class="icone-botao" data-acao="fechar-recado" aria-label="Dispensar">✕</button>
+    </div>`;
+  }
+  return recadoSiteHTML();
+}
+
+/* O que o recado diria (a lógica fica, mesmo com o recado escondido). */
+function textoRecado(item, quando) {
     const texto = !quando ? 'Guardado. A hora do aviso já passou.'
       : (Avisos.permitido === false && !item.alarme) ? 'Guardado, mas os avisos estão bloqueados no Android.'
       : item.repetir ? 'Guardado. ' + (item.alarme ? 'Alarme' : 'Aviso') + ' a cada ' + rotuloCada(item.repetir.cada) +
@@ -441,16 +461,11 @@ function recadoHTML() {
           fmtQuandoAviso(quando).split(' às ')[0] + ' às ' + rotuloHoras(item) + '.'
       : item.alarme ? 'Guardado. Alarme ' + fmtQuandoAviso(quando) + '.'
       : avisosGuardado(Avisos.horarios(item));
-    const botao = (Avisos.permitido === false && !(item && item.alarme))
-      ? `<button class="mini" data-acao="permitir-avisos">Liberar avisos</button>`
-      : (item && item.alarme && quando && !Avisos.sobrepor)
-      ? `<button class="mini" data-acao="sobrepor">Liberar tela do alarme</button>` : '';
-    return `<div class="recado">
-      <div class="recado-texto">${esc(texto)}</div>
-      ${botao}
-      <button class="icone-botao" data-acao="fechar-recado" aria-label="Dispensar">✕</button>
-    </div>`;
-  }
+    return texto;
+}
+
+/* Site/iPhone: o recado leva o botão "Pôr no calendário" (é o único caminho do aviso) — continua. */
+function recadoSiteHTML() {
   return `<div class="recado">
       <div class="recado-texto">${(() => {
         const it = Dados.itens().find(i => i.id === App.recado);
@@ -759,8 +774,12 @@ function telaDinheiro() {
 function telaAgenda() {
   const h = hojeISO();
   const todos = Dados.itens().filter(i => i.tipo === 'compromisso' && i.data);
-  const futuros = todos.filter(i => i.data >= h).sort(ordemAgenda);
-  const passados = todos.filter(i => i.data < h).sort((a, b) => ordemAgenda(b, a));
+  // Hoje, o que já passou (horário vencido ou marcado como feito) sai de "Hoje" e vai para "Já passou"
+  // (pedido dele, 25/11/2026: o alarme marcado para amanhã não deve dividir a tela com os de hoje que já tocaram).
+  const agora = new Date();
+  const jaPassou = i => i.data < h || (i.data === h && !i.semana && (i.feito || (i.hora && ultimaHoraDe(i) <= agora)));
+  const futuros = todos.filter(i => !jaPassou(i)).sort(ordemAgenda);
+  const passados = todos.filter(jaPassou).sort((a, b) => ordemAgenda(b, a));
 
   let saida = '';
   if (!futuros.length) saida += vazio('Agenda livre', 'Nenhum compromisso marcado daqui pra frente. Escreva, por exemplo, "reunião segunda 9h".', '📅');

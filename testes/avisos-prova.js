@@ -88,7 +88,19 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
     const h = telaAgenda(); return h.includes('🔔') && !h.includes('Pôr no calendário');
   });
   App.recado = c.id;
-  await prova('recado diz quando vai avisar', () => recadoHTML().includes('Aviso '));
+  await prova('recado comum ("Guardado. Aviso …") fica escondido (pedido 25/11), mas o texto continua calculado', () =>
+    recadoHTML() === '' && textoRecado(c, Avisos.quando(c)).includes('Aviso'));
+  const agA = new Date(), antes5 = new Date(agA.getTime() - 5 * 60000);
+  if (iso(antes5) === iso(agA)) {
+    const ja = novo({ tipo: 'compromisso', titulo: 'Já tocou hoje', alarme: true, data: iso(agA), hora: hhmm(antes5) });
+    await prova('Agenda: o que já passou hoje sai de "Hoje" e vai para "Já passou"', () => {
+      const h = telaAgenda(); return !h.includes('Já tocou hoje') && h.includes('Já passou');
+    });
+    Dados.remover(ja.id);
+  }
+  App.recado = velho.id;
+  await prova('recado que pede atenção (hora já passou) continua aparecendo', () => recadoHTML().includes('já passou'));
+  App.recado = c.id;
   await prova('Ajustes tem a seção Avisos', () => { painelAjustes(); return true; });
 
   // ---- alarme de verdade ----
@@ -354,9 +366,8 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
   });
   await prova('cada alarme diz a própria hora ("Alarme das 4:55")', () => dele().some(x => x.texto === 'Alarme das 4:55'));
   await prova('recado cita os três horários', () => {
-    App.recado = v.id; return recadoHTML().includes('04:45, 04:55 e 05:05');
+    return textoRecado(v, Avisos.quando(v)).includes('04:45, 04:55 e 05:05');
   });
-  App.recado = null;
   // hoje, um horário já passou e o outro não: o dia continua sendo hoje
   const agoraT = new Date(), cedo = new Date(agoraT.getTime() - 5 * 60000), tarde = new Date(agoraT.getTime() + 5 * 60000);
   if (iso(cedo) === iso(agoraT) && iso(tarde) === iso(agoraT)) {

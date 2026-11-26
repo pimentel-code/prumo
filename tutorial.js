@@ -102,7 +102,7 @@ const Tutorial = {
                  ${linha('tarefa', SELO_TIPO.tarefa, 'lembrar de pagar a luz', 'vai para a lista de tarefas', 'Tarefa', 850)}
                </div>`,
         titulo: 'Ele entende sozinho',
-        texto: 'Antes de guardar, o Prumo mostra <strong>o que entendeu</strong>. Se errar, toque no tipo certo. Corrigiu a categoria? Ele aprende para a próxima vez.'
+        texto: 'Antes de guardar, o Prumo mostra <strong>o que entendeu</strong>. Se algo estiver errado, corrija nos campos. Corrigiu a categoria? Ele aprende para a próxima vez.'
       },
       {
         id: 'natural', nova: 29,

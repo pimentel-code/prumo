@@ -213,11 +213,11 @@ test('trocar o tipo na confirmação muda os campos oferecidos', async ({ page }
   await anotar(page, 'recebi 3000 do salário');
   await expect(page.locator('.chip.ativo')).toHaveText('Entrou');
 
-  await page.click('.chip[data-tipo="compromisso"]');
+  await page.locator('.chip[data-tipo="compromisso"]').dispatchEvent('click');   // tipos escondidos (25/11), a troca continua
   await expect(page.locator('#c_hora')).toBeVisible();   // compromisso tem hora
   await expect(page.locator('#c_valor')).toHaveCount(0); // e não tem valor
 
-  await page.click('.chip[data-tipo="nota"]');
+  await page.locator('.chip[data-tipo="nota"]').dispatchEvent('click');
   await expect(page.locator('#c_data')).toHaveCount(0);  // anotação não tem data
 });
 
