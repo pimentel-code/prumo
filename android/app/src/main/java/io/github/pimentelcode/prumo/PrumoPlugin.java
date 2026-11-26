@@ -83,6 +83,22 @@ public class PrumoPlugin extends Plugin {
         call.resolve();
     }
 
+    /** Lembretes que se repetem ("a cada 20 min"): um substitui o outro e some na metade do intervalo. */
+    @PluginMethod
+    public void definirLembretes(PluginCall call) {
+        Lembretes.definir(getContext(), call.getArray("lembretes", new JSArray()));
+        call.resolve();
+    }
+
+    /** "Parar"/"Feito" tocados com o app fechado — o app aplica e a lista é zerada. */
+    @PluginMethod
+    public void acoesLembrete(PluginCall call) {
+        JSObject r = new JSObject();
+        try { r.put("acoes", new JSArray(Lembretes.pegarAcoes(getContext()).toString())); }
+        catch (org.json.JSONException e) { r.put("acoes", new JSArray()); }
+        call.resolve(r);
+    }
+
     @PluginMethod
     public void testarAlarme(PluginCall call) {
         int segundos = call.getInt("segundos", 10);

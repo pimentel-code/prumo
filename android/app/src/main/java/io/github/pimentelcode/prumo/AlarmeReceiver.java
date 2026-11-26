@@ -20,6 +20,7 @@ public class AlarmeReceiver extends BroadcastReceiver {
         } else if (Intent.ACTION_BOOT_COMPLETED.equals(acao)
                 || Intent.ACTION_MY_PACKAGE_REPLACED.equals(acao)) {
             Alarmes.reagendarSalvos(c);
+            Lembretes.reagendarSalvos(c);
         }
     }
 }

@@ -401,3 +401,19 @@ O site (iPhone) continua igual, com o "Pôr no calendário".
 - iPhone (.ics): um VEVENT por horário.
 - Apresentação: telas 'avisos' e 'semana' agora nova: 30 (exemplo "alarme às 4h45 e 4h55").
 - Provas: 87 frases naturais, +5 em avisos-prova, +1 no navegador (94 no total).
+
+## 25/11/2026 — lembrete repetido não acumula mais na barra (1.31, TESTE, NATIVA)
+- Queixa dele: "a cada 20 minutos" → as notificações se acumulavam na barra. Ideia dele: cada uma some na metade do
+  intervalo (a cada 10 min → some em 5). Fiz isso E mais: todas da série usam o MESMO número de notificação, então a nova
+  SUBSTITUI a anterior (nunca há mais de uma, mesmo se o Android atrasar).
+- O plugin @capacitor/local-notifications não tem setTimeoutAfter nem "substituir" → peça nativa nova:
+  Lembretes.java + LembreteReceiver.java (mesmo molde do Alarmes.java). setExactAndAllowWhileIdle, notificação no canal
+  "avisos", id = serie (numero(item.id + '#serie')), setTimeoutAfter(sumir = cada/2), botões Parar/Feito por broadcast
+  (NÃO abrem o app): cancelam o resto da série ali mesmo e guardam {item, acao, quando} em SharedPreferences.
+  Boot: AlarmeReceiver também chama Lembretes.reagendarSalvos.
+- PrumoPlugin: definirLembretes({lembretes:[{id, at, titulo, item, serie, sumir}]}) e acoesLembrete() (pega e zera).
+- avisos.js: reagendarTudo começa por aplicarAcoesLembrete() (parar → repetir.ate = hora do toque; feito → feito/pularSemanal);
+  série (repetir, não alarme) vai para definirLembretes se existir — senão o caminho antigo (APK velho). Ao voltar ao app
+  (App resume) refaz tudo. definir() do Java ignora séries com ação pendente (o app ainda não viu o "Parar").
+- Provas: +7 em avisos-prova (stub com definirLembretes/acoesLembrete adicionado só nessa seção; as antigas seguem testando o caminho velho).
+- NÃO testado em aparelho: substituição, sumir sozinho, Parar/Feito com o app fechado.

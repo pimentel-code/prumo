@@ -326,6 +326,8 @@ const Avisos = {
     if (this.permitido === null && Dados.itens().some(i => this.quando(i))) await this.pedirPermissao();
     await this.lerEstadoAlarme();
     this.programar(0);
+    // Voltando ao app: aplica o "Parar"/"Feito" tocado no lembrete e refaz a lista.
+    try { window.Capacitor.Plugins.App.addListener('resume', () => this.programar(0)); } catch (e) {}
   },
 
   async pedirPermissao() {
@@ -345,6 +347,7 @@ const Avisos = {
 
   async reagendarTudo() {
     if (!this.nativo) return;
+    await this.aplicarAcoesLembrete();
     this.rolarSemanais();
     this.atualizarWidget();
     const LN = this.plugin();
@@ -367,13 +370,25 @@ const Avisos = {
       if (pendentes.notifications.length) {
         await LN.cancel({ notifications: pendentes.notifications.map(n => ({ id: n.id })) });
       }
-      if (this.permitido === false) return;
+      // Lembrete que se repete ("a cada 20 min"): vai para a peça nativa (Lembretes.java), onde o aviso
+      // novo SUBSTITUI o anterior e cada um some na metade do intervalo — não acumulam na barra.
+      const nativoSerie = !!(this.nativoPrumo() && this.nativoPrumo().definirLembretes);
+      const ehSerie = x => nativoSerie && x.item.repetir && !x.item.alarme && !x.item.conta;
+      const lembretes = this.permitido === true || this.permitido === null ? plano.filter(ehSerie) : [];
+
+      if (this.permitido === false) { if (nativoSerie) await this.nativoPrumo().definirLembretes({ lembretes: [] }).catch(() => {}); return; }
       if (this.permitido === null) {
         if (!this.plano().length) return;
         if (!(await this.pedirPermissao())) return;
       }
+      if (nativoSerie) {
+        await this.nativoPrumo().definirLembretes({ lembretes: lembretes.map(({ item, hora, chave }) => ({
+          id: this.numero(chave || item.id), at: hora.getTime(), titulo: item.titulo, item: item.id,
+          serie: this.numero(item.id + '#serie'), sumir: Math.round(item.repetir.cada * 60000 / 2)
+        })) }).catch(e => console.warn('Avisos: lembretes falharam', e));
+      }
 
-      const lista = plano.filter(x => !x.item.alarme).map(({ item, hora, chave }) => ({
+      const lista = plano.filter(x => !x.item.alarme && !ehSerie(x)).map(({ item, hora, chave }) => ({
         id: this.numero(chave || item.id),
         // Só a mensagem principal (pedido dele, 24/11/2026): o título e os botões.
         // Conta fixa mantém o valor, que é a informação principal dela.
@@ -400,6 +415,29 @@ const Avisos = {
       }
       if (lista.length) await LN.schedule({ notifications: lista });
     } catch (err) { console.warn('Avisos: reagendar falhou', err); }
+  },
+
+  /* "Parar"/"Feito" tocados no lembrete com o app fechado (Lembretes.java guardou): aplica agora. */
+  async aplicarAcoesLembrete() {
+    const p = this.nativoPrumo();
+    if (!p || !p.acoesLembrete) return false;
+    let acoes = [];
+    try { acoes = ((await p.acoesLembrete()) || {}).acoes || []; } catch (e) { return false; }
+    let mudou = false;
+    for (const a of acoes) {
+      const item = Dados.itens().find(i => i.id === a.item);
+      if (!item) continue;
+      if (a.acao === 'feito') {
+        if (item.semana) this.pularSemanal(item); else Dados.atualizar(item.id, { feito: true });
+      } else if (a.acao === 'parar' && item.repetir) {
+        const d = new Date(a.quando || Date.now()), z = n => String(n).padStart(2, '0');
+        Dados.atualizar(item.id, { repetir: Object.assign({}, item.repetir, {
+          ate: hojeISOAvisos(d) + 'T' + z(d.getHours()) + ':' + z(d.getMinutes()) }) });
+      }
+      mudou = true;
+    }
+    if (mudou && typeof render === 'function') render();
+    return mudou;
   },
 
   /* Tocou na notificação ou num dos botões dela. */

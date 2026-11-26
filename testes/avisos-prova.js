@@ -370,9 +370,35 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
     (montarICS(Object.assign({ id: 'r' }, interpretar('tomar remédio às 8h, 14h e 20h amanhã')), [60, 30]).match(/BEGIN:VEVENT/g) || []).length === 3);
   Dados.remover(v.id);
 
+  // ---- lembrete repetido pela peça nativa (Lembretes.java, 25/11/2026): não acumula na barra ----
+  const P = window.Capacitor.Plugins.Prumo;
+  globalThis.acoesNativas = [];
+  P.definirLembretes = async o => { globalThis.lembretes = o.lembretes; };
+  P.acoesLembrete = async () => { const a = globalThis.acoesNativas; globalThis.acoesNativas = []; return { acoes: a }; };
+  const agoraL = new Date();
+  const lem = Dados.adicionar(Avisos.ajustarAlarme(interpretar('me lembre de beber água a cada 10 minutos por 1 hora', { agora: agoraL, hoje: agoraL })));
+  await Avisos.reagendarTudo();
+  const doLem = () => (globalThis.lembretes || []).filter(x => x.item === lem.id);
+  await prova('série "a cada 10 min" vai para a peça nativa, não para o plugin de notificações', () =>
+    doLem().length === 6 && !agendados.some(n => n.extra && n.extra.id === lem.id));
+  await prova('todos os avisos da série usam o MESMO número de notificação (o novo substitui o anterior)', () =>
+    new Set(doLem().map(x => x.serie)).size === 1 && new Set(doLem().map(x => x.id)).size === 6);
+  await prova('cada aviso some na metade do intervalo (a cada 10 min → some em 5 min)', () => doLem().every(x => x.sumir === 5 * 60000));
+  await prova('aviso comum (não repetido) continua pelo plugin de sempre', () => !(globalThis.lembretes || []).some(x => x.item === med.id));
+  globalThis.acoesNativas = [{ item: lem.id, acao: 'parar', quando: Date.now() }];
+  await Avisos.reagendarTudo();
+  await prova('"Parar" tocado com o app fechado: ao abrir, a série termina e o item continua', () =>
+    doLem().length === 0 && Dados.itens().some(i => i.id === lem.id && !i.feito));
+  const lem2 = Dados.adicionar(interpretar('olhar o forno a cada 10 minutos por 1 hora', { agora: agoraL, hoje: agoraL }));
+  await Avisos.reagendarTudo();
+  globalThis.acoesNativas = [{ item: lem2.id, acao: 'feito', quando: Date.now() }];
+  await Avisos.reagendarTudo();
+  await prova('"Feito" tocado com o app fechado: ao abrir, o item fica feito', () =>
+    Dados.itens().find(i => i.id === lem2.id).feito === true && !(globalThis.lembretes || []).some(x => x.item === lem2.id));
+
   permissao = 'denied'; Avisos.permitido = false;
   await Avisos.reagendarTudo();
-  await prova('sem permissão não agenda nada', () => agendados.length === 0);
+  await prova('sem permissão não agenda nada', () => agendados.length === 0 && (globalThis.lembretes || []).length === 0);
 
   print('');
   print(falhas ? falhas + ' PROBLEMA(S)' : 'tudo passou');

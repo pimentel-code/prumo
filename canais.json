@@ -9,11 +9,11 @@
     "notas": "Notificações só com a mensagem principal (o título) e os botões"
   },
   "teste": {
-    "codigo": 30,
-    "nativo": 18,
-    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.30/Prumo.apk",
-    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.30/miolo.zip",
-    "sha256": "a55826002769ade7885b62360bdfd8ddee6bf923a299dc93c1e9377d5d85d533",
-    "notas": "Vários horários na mesma frase (até 5): 'alarme às 4h45, 4h55 e 5h05 de segunda a sexta'"
+    "codigo": 31,
+    "nativo": 31,
+    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.31/Prumo.apk",
+    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.31/miolo.zip",
+    "sha256": "b179587921978471798f0ebde0b6063e4b29201ea5f5f5b0881646c531b6b755",
+    "notas": "Lembrete a cada X minutos não acumula mais: cada aviso substitui o anterior e some sozinho na metade do intervalo"
   }
 }

@@ -50,6 +50,11 @@
             </intent-filter>
         </receiver>
 
+        <!-- Lembrete que se repete (a cada X min): notificação própria que substitui a anterior e some sozinha -->
+        <receiver
+            android:name=".LembreteReceiver"
+            android:exported="false" />
+
         <!-- Widget da tela principal (PrumoWidget.java) -->
         <receiver
             android:name=".PrumoWidget"

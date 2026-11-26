@@ -189,7 +189,7 @@ const Tutorial = {
                </div>`,
         titulo: 'Lembretes que repetem',
         texto: 'Diga <strong>“a cada 20 minutos”</strong>, <strong>“de meia em meia hora”</strong> ou <strong>“de hora em hora”</strong> e o Prumo ' +
-               (nativo ? 'manda uma notificação a cada vez. Toque em <strong>Parar</strong> ou <strong>Feito</strong> no próprio aviso.'
+               (nativo ? 'avisa a cada vez. Os avisos não se acumulam: cada um substitui o anterior e some sozinho na metade do intervalo. Toque em <strong>Parar</strong> ou <strong>Feito</strong> no próprio aviso.'
                        : 'põe um aviso para cada vez no calendário do celular.') +
                ' Vale por <strong>3 horas</strong>, ou diga até quando: <strong>“até as 18h”</strong>, <strong>“por 2 horas”</strong>, <strong>“o dia todo”</strong>.' +
                (nativo ? ' Quer som de despertador? Diga <strong>“alarme a cada 30 minutos”</strong>.' : '')
