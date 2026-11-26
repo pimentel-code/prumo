@@ -21,6 +21,11 @@ cat interpretador.js testes/casos.js > "$T/t1.js"
 rodar_js "$T/t1.js"
 
 echo
+echo "── interpretador: frases faladas do jeito natural ──"
+cat interpretador.js testes/naturais.js > "$T/t1b.js"
+rodar_js "$T/t1b.js"
+
+echo
 echo "── app inteiro: 14 provas com navegador simulado ──"
 cat testes/stubs.js versao-miolo.js miolo.js interpretador.js dados.js calendario.js avisos.js tutorial.js atualizacao.js esfera.js app.js testes/prova.js > "$T/t2.js"
 rodar_js "$T/t2.js"

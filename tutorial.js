@@ -165,6 +165,18 @@ const Tutorial = {
                ' Vale por <strong>3 horas</strong>, ou diga até quando: <strong>“até as 18h”</strong>, <strong>“por 2 horas”</strong>, <strong>“o dia todo”</strong>.' +
                (nativo ? ' Quer som de despertador? Diga <strong>“alarme a cada 30 minutos”</strong>.' : '')
       },
+      {
+        id: 'natural', nova: 27,
+        arte: `<div class="tut-repete">
+                 <div class="tut-repete-frase">“preciso estar <b>às duas da tarde</b> no médico”</div>
+                 <div class="tut-aviso" data-tipo="compromisso"><div class="selo"><span class="tut-sino">🔔</span></div>
+                   <div><strong>Médico</strong><span>Hoje às 14:00</span></div><small>13:00 · 13:30</small></div>
+               </div>`,
+        titulo: 'Fale do seu jeito',
+        texto: 'Não precisa falar como robô. <strong>“Amanhã tenho dentista às 10 e meia”</strong>, <strong>“hoje à noite ligar pro João”</strong>, <strong>“fui no mercado e deu 230”</strong>: o Prumo entende. ' +
+               (nativo ? 'Compromisso com hora avisa <strong>1 hora antes e de novo 30 minutos antes</strong> (dá para mudar em ⚙ Ajustes). Quer outro tempo só naquele? Diga <strong>“me avisa 15 minutos antes”</strong>.'
+                       : 'No calendário do celular, o compromisso já vai com aviso <strong>1 hora antes e 30 minutos antes</strong>.')
+      },
       nativo ? {
         arte: `<div class="tut-widget">
                  <div class="tut-widget-textos"><strong>Gasto hoje: R$ 45,00</strong><span>📅 Dentista · hoje 15:00</span></div>

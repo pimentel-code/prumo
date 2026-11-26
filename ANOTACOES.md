@@ -337,3 +337,27 @@ O site (iPhone) continua igual, com o "Pôr no calendário".
   Alarme só se a frase pedir ("alarme a cada 30 min").
 - iPhone (.ics): um evento cobrindo a série, um VALARM por passo (o iPhone pode guardar só 2 avisos — NÃO conferido).
 - Confirmação: campos "Lembrar a cada" e "Até"; compromisso com hora ganha o botão "🔁 Lembrar várias vezes".
+
+## 25/11/2026 — fale do seu jeito + aviso 1 h e 30 min antes (1.27, TESTE, só miolo)
+- Pedido dele: entender frase dita como se fala com outra pessoa ("preciso estar às 14h no médico"),
+  e compromisso com hora avisar sozinho 1 h antes E 30 min antes.
+- avisos.js: `antecedencias(item)` (lista) no lugar de um número só. Padrão PADRAO_ANTES = [60, 30];
+  quem tinha avisoMinutos ≠ 30 continua com ele; o novo é `avisosAntes` (Ajustes → Avisar compromissos
+  virou caixinhas, pode marcar vários: na hora, 10, 30 min, 1 h, 2 h, 1 dia; sempre fica um).
+  `horarios(item)` devolve todos; `quando()` = o primeiro. plano(): 2º aviso com chave "id@1".
+  Adiar 10 min: o adiado entra no lugar do que tocou, os seguintes continuam. Recado: "Avisos hoje às 13:00 e às 13:30".
+- calendario.js (iPhone): o .ics leva até 2 VALARM (o iPhone guarda 2), padrão 60 e 30.
+- interpretador.js:
+  - hora por extenso e falada: "às duas da tarde", "às 10 e meia", "sete e quinze", "meio-dia e meia",
+    "quinze para as três". "às duas" só vira hora se não vier um nome depois ("as duas camisas" não).
+  - hora de 1 a 5 sem período = da tarde ("reunião às 3" = 15h), MENOS com alarme/acordar/madrugada/cedo.
+  - períodos (só se não houver hora): cedo 8h, de manhã 9h, começo da tarde 13h, à tarde 15h, fim da tarde 17h,
+    fim do dia 18h, à noite 19h, hora do almoço 12h, depois do almoço 13h → item.periodo + naHora (avisa NA hora).
+  - "me avisa meia hora antes", "2 horas antes", "com 15 minutos de antecedência", "um dia antes" → item.avisoAntes
+    (só esse aviso). Vem antes da hora (senão "2 horas" vira 02:00).
+  - título sem muletas da fala: tenho/tô com/vou/fui no/marquei/estar… ("tenho médico" → "Médico");
+    em TAREFA o "ir" fica ("Ir no correio"). Gírias de gasto: deu, deixei, ficou (em), gastamos; posto/abasteci = Transporte;
+    categoria aceita plural ("pizzas"). Tarefa com dinheiro ("pagar os 50 reais") mantém o valor no título.
+- testes/naturais.js: 62 frases faladas com o resultado esperado (roda no rodar.sh e TRAVA a publicação se falhar).
+- Tutorial: tela nova "Fale do seu jeito" (nova: 27). Exemplo da caixa vazia: "preciso estar às duas da tarde no médico".
+- Fica de fora (não tem como): "comprar pão quando voltar" não vira horário.

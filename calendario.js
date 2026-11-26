@@ -30,7 +30,10 @@ function montarICS(item, minutosAntes) {
   if (item.hora) {
     const [hh, mm] = item.hora.split(':');
     const inicio = new Date(+a, +m - 1, +d, +hh, +mm);
-    const gatilho = item.naHora ? 'PT0M' : '-PT' + (minutosAntes || 30) + 'M';   // "daqui a 40 min": na hora
+    // Um alarme para cada antecedência (padrão: 1 h e 30 min antes). O iPhone guarda até 2 por evento.
+    const lista = item.naHora ? [0] : (item.avisoAntes != null ? [item.avisoAntes]
+      : [].concat(minutosAntes == null ? [60, 30] : minutosAntes)).slice(0, 2);
+    const gatilho = lista.map(min => min ? '-PT' + min + 'M' : 'PT0M');   // "daqui a 40 min": na hora
     return embrulharICS([blocoEvento(item, inicio, new Date(inicio.getTime() + 60 * 60000), gatilho)]);
   }
   return embrulharICS([blocoEvento(item, new Date(+a, +m - 1, +d), null, 'PT9H')]);   // dia inteiro: avisa às 9h
@@ -41,7 +44,7 @@ function embrulharICS(eventos) {
     .concat(...eventos, ['END:VCALENDAR']).join('\r\n') + '\r\n';
 }
 
-/* Um VEVENT com um alarme. fim = null → dia inteiro. */
+/* Um VEVENT com um ou mais alarmes (gatilho: texto ou lista). fim = null → dia inteiro. */
 function blocoEvento(item, inicio, fim, gatilho) {
   const p = n => String(n).padStart(2, '0');
   const dia = x => x.getFullYear() + p(x.getMonth() + 1) + p(x.getDate());
@@ -51,8 +54,11 @@ function blocoEvento(item, inicio, fim, gatilho) {
   if (fim) linhas.push('DTSTART:' + local(inicio), 'DTEND:' + local(fim));
   else linhas.push('DTSTART;VALUE=DATE:' + dia(inicio), 'DTEND;VALUE=DATE:' + dia(new Date(inicio.getFullYear(), inicio.getMonth(), inicio.getDate() + 1)));
   if (item.texto && item.texto !== item.titulo) linhas.push('DESCRIPTION:' + escaparICS(item.texto));
-  linhas.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + escaparICS(item.titulo),
-              'TRIGGER;RELATED=START:' + gatilho, 'END:VALARM', 'END:VEVENT');
+  for (const g of [].concat(gatilho)) {
+    linhas.push('BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + escaparICS(item.titulo),
+                'TRIGGER;RELATED=START:' + g, 'END:VALARM');
+  }
+  linhas.push('END:VEVENT');
   return linhas;
 }
 

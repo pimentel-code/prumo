@@ -780,6 +780,14 @@ button.aj-linha:active { background: rgba(255, 255, 255, .05); }
 .aj-radio.marcado { border-color: var(--acento); }
 .aj-radio.marcado::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: var(--acento); }
 
+/* Várias escolhas (caixinha com ✓) — "Avisar compromissos" */
+.aj-radio.caixa { border-radius: 6px; }
+.aj-radio.caixa.marcado { background: var(--acento); }
+.aj-radio.caixa.marcado::after {
+  inset: auto; left: 6px; top: 1px; width: 6px; height: 12px; border-radius: 0; background: none;
+  border: solid #fff; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg);
+}
+
 .aj-explica { background: var(--cartao); border-radius: 18px; padding: 6px 18px; margin-top: 12px; }
 .painel .aj-explica p { color: var(--texto); font-size: 15.5px; line-height: 1.55; margin: 12px 0; }
 .aj-fim { text-align: center; color: var(--suave); font-size: 13px; margin: 26px 0 4px; }

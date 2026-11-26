@@ -31,7 +31,7 @@ const PALAVRAS = {
   receita: ['recebi','ganhei','entrou','caiu','me pagaram','salario','honorarios',
             'deposito','vendi','rendimento','restituicao','reembolso'],
   gasto:   ['paguei','gastei','comprei','custou','torrei','saiu','gasto de',
-            'despesa'],
+            'despesa','deixei','deu','ficou em','ficou','gastamos','pagamos','compramos'],
   // Verbos que só anunciam a tarefa — somem do título ("lembrar de X" vira "X").
   // A ordem importa: acharPalavra devolve a PRIMEIRA que casar, então as
   // frases compridas vêm antes. Sem isso, "me lembrar de pagar o IPTU"
@@ -50,17 +50,18 @@ const PALAVRAS = {
   compromisso: ['reuniao','audiencia','consulta','medico','dentista','aniversario',
                 'encontro','entrevista','sessao','missa','casamento','formatura',
                 'voo','embarque','culto','aula','prova','plantao','visita','almoco com',
-                'jantar com','cafe com','conversa com','call','videochamada']
+                'jantar com','cafe com','conversa com','call','videochamada','cabeleireiro',
+                'cabelereiro','barbeiro','manicure','exame','viajar','viagem','show','churrasco']
 };
 
 /* Categorias de dinheiro por palavra-chave. O app vai somando as que você corrige. */
 const CATEGORIAS = {
-  'Alimentação': ['almoco','jantar','janta','cafe','lanche','restaurante','ifood','rappi',
+  'Alimentação': ['almoco','almocei','jantei','lanchei','jantar','janta','cafe','lanche','restaurante','ifood','rappi',
                   'padaria','pizza','hamburguer','acai','sorvete','comida','marmita',
                   'delivery','churrasco','doceria','sushi'],
   'Mercado':     ['mercado','supermercado','feira','hortifruti','sacolao','atacado',
                   'compras do mes','acougue'],
-  'Transporte':  ['gasolina','combustivel','alcool','etanol','diesel','uber','99','taxi',
+  'Transporte':  ['gasolina','combustivel','posto','abasteci','alcool','etanol','diesel','uber','99','taxi',
                   'onibus','metro','estacionamento','pedagio','mecanico','oficina','ipva',
                   'licenciamento','revisao','pneu','lavagem','seguro do carro','passagem'],
   'Casa':        ['luz','energia','agua','aluguel','condominio','internet','gas','iptu',
@@ -108,6 +109,11 @@ class Frase {
   marcar(inicio, fim) {
     for (let i = inicio; i < fim && i < this.usado.length; i++) this.usado[i] = true;
     this.t = this.t.slice(0, inicio) + ' '.repeat(fim - inicio) + this.t.slice(fim);
+  }
+  /* Devolve um pedaço ao texto (o valor de uma tarefa: "pagar os 50 reais"). */
+  desmarcar(inicio, fim) {
+    for (let i = inicio; i < fim && i < this.usado.length; i++) this.usado[i] = false;
+    this.t = this.t.slice(0, inicio) + semAcento(this.original.slice(inicio, fim)) + this.t.slice(fim);
   }
   /* Procura no que ainda não foi marcado. Devolve o match ou null. */
   achar(regex) {
@@ -224,34 +230,139 @@ function marcarPedidoDeAviso(f) {
 
 /* ---------- hora ---------- */
 
+/* Hora dita como se fala: "às duas da tarde", "às 10 e meia", "às sete e quinze",
+   "meio-dia e meia", "quinze para as três". Número por extenso é o que o
+   microfone do Android costuma escrever. */
+const HORAS_FALADAS = {
+  uma: 1, um: 1, duas: 2, dois: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7,
+  oito: 8, nove: 9, dez: 10, onze: 11, doze: 12
+};
+const MINUTOS_FALADOS = {
+  meia: 30, cinco: 5, dez: 10, quinze: 15, vinte: 20, 'vinte e cinco': 25, trinta: 30,
+  'trinta e cinco': 35, quarenta: 40, 'quarenta e cinco': 45, cinquenta: 50, 'cinquenta e cinco': 55
+};
+const PALAVRAS_DE_ACORDAR = /\b(alarm\w*|despert\w*|acord\w*|madrugada|cedo)\b/;
+
 function acharHora(f) {
+  const hp = Object.keys(HORAS_FALADAS).join('|');
+  const mp = Object.keys(MINUTOS_FALADOS).sort((a, b) => b.length - a.length).join('|');
+  const H = '([01]?\\d|2[0-3]|' + hp + ')';
+  const valH = t => /^\d/.test(t) ? +t : HORAS_FALADAS[t];
+  const valM = t => !t ? 0 : /^\d/.test(t) ? +t : MINUTOS_FALADOS[t];
+  const periodo = '(?:\\s*(?:da|de)\\s+(manha|tarde|noite))?';
+  // Depois de "às duas" precisa vir algo que não seja um nome: "às duas camisas" não é hora.
+  const fimSolto = '(?=\\s*$|\\s*[,.;!?]|\\s+(?:no|na|nos|nas|em|com|pra|pro|para|de|do|da|que|vou|vamos|tenho|tem|temos|preciso|precisa|quero|eu|me|a|o|ir|estar|ligar|buscar|pegar|levar|passar|chegar|sair|ter|tomar|fazer|comprar|marcar|pagar|ver|amanha|hoje|depois|e\\s+(?!meia|' + mp + ')))';
+  // tarde/noite viram 13–23h; sem período, 1 a 5 é da tarde (ninguém marca médico às 3 da manhã)
+  const ajustar = (h, per, cru) => {
+    if ((per === 'tarde' || per === 'noite') && h < 12) return h + 12;
+    if (!per && cru && h >= 1 && h <= 5 && !PALAVRAS_DE_ACORDAR.test(f.t)) return h + 12;
+    return h;
+  };
   const tentativas = [
+    // "quinze para as três", "dez pras oito" → 14:45, 19:50
+    [new RegExp('\\b(' + mp + '|\\d{1,2})\\s+(?:minutos\\s+)?(?:para|pra|pras)\\s+(?:as\\s+|a\\s+)?' + H + periodo + '\\b'), m => {
+      const min = valM(m[1]); const h = ajustar(valH(m[2]), m[3], true) - 1;
+      return [h < 0 ? 23 : h, 60 - min];
+    }],
     // "às 14h30", "as 14:30", "14h30", "14:30"
     [/\b(?:as\s+)?([01]?\d|2[0-3])\s*[:h]\s*([0-5]\d)\b/, m => [+m[1], +m[2]]],
-    // "às 14h", "14 horas"
-    [/\b(?:as\s+)?([01]?\d|2[0-3])\s*h(?:oras?)?\b/, m => [+m[1], 0]],
-    // "2 da tarde", "8 da noite", "9 da manhã"
-    [/\b(\d{1,2})\s*(?:da|de)\s+(manha|tarde|noite)\b/, m => {
-      let h = +m[1];
-      if (m[2] === 'tarde' && h < 12) h += 12;
-      if (m[2] === 'noite' && h < 12) h += 12;
-      return [h, 0];
+    // "meio-dia e meia"
+    [/\bmeio[\s-]?dia\s+e\s+meia\b/, () => [12, 30]],
+    // "às 10 e meia", "às dez e quinze da noite", "10h e meia", "às 7 e 40"
+    [new RegExp('\\b(?:as\\s+|a\\s+partir\\s+das\\s+)?' + H + '\\s*(?:h|horas?)?\\s+e\\s+(' + mp + '|[0-5]?\\d)(?:\\s*min(?:utos?)?)?' + periodo + '\\b'), (m, texto) => {
+      if (!/^as\s|^a\s/.test(texto) && !/^\d/.test(m[1]) && !m[3]) return null;   // "dez e meia" solto só com "às"
+      return [ajustar(valH(m[1]), m[3], !/h/.test(texto)), valM(m[2])];
     }],
+    // "às 14h", "14 horas", "às 9h da noite"
+    [/\b(?:as\s+)?([01]?\d|2[0-3])\s*h(?:oras?)?(?:\s*(?:da|de)\s+(manha|tarde|noite))?\b/, m => [ajustar(+m[1], m[2], false), 0]],
+    // "2 da tarde", "8 da noite", "9 da manhã", "duas da tarde"
+    [new RegExp('\\b(?:as\\s+)?' + H + '\\s*(?:da|de)\\s+(manha|tarde|noite)\\b'), m => [ajustar(valH(m[1]), m[2], false), 0]],
     [/\bmeio[\s-]?dia\b/, () => [12, 0]],
     [/\bmeia[\s-]?noite\b/, () => [0, 0]],
+    // "às duas", "as cinco no dentista" — por extenso, só com o "às" e sem um nome depois
+    [new RegExp('\\bas\\s+(' + hp + ')(?:\\s+horas?)?' + fimSolto), m => [ajustar(valH(m[1]), null, true), 0]],
     // "às 8" — sem o "h". Último recurso, para não roubar número de valor.
-    [/\bas\s+([01]?\d|2[0-3])\b(?!\s*[\/.,:\d])/, m => [+m[1], 0]]
+    [/\bas\s+([01]?\d|2[0-3])\b(?!\s*[\/.,:\d])/, m => [ajustar(+m[1], null, true), 0]]
   ];
   for (const [re, extrair] of tentativas) {
     const m = f.achar(re);
     if (m) {
-      const [h, min] = extrair(m);
+      const r = extrair(m, m[0]);
+      if (!r) continue;
+      const [h, min] = r;
       if (h > 23 || min > 59) continue;
       f.marcar(m.index, m.index + m[0].length);
       return comZero(h) + ':' + comZero(min);
     }
   }
   return null;
+}
+
+/* "de manhã", "à tarde", "hoje à noite", "amanhã cedo", "no fim da tarde", "na hora do almoço".
+   Só vale quando ninguém disse a hora: dá um horário de referência, e o aviso toca nele. */
+const PERIODOS = [
+  [/\b(?:bem\s+)?cedo(?:\s+(?:de|pela)\s+manha)?\b/, '08:00'],
+  [/\b(?:no\s+|ao\s+)?(?:fim|final)\s+da\s+tarde\b/, '17:00'],
+  [/\b(?:no\s+|ao\s+)?(?:fim|final)\s+do\s+dia\b/, '18:00'],
+  [/\b(?:no\s+)?(?:comeco|inicio)\s+da\s+tarde\b/, '13:00'],
+  [/\b(?:na\s+)?hora\s+do\s+almoco\b/, '12:00'],
+  [/\bdepois\s+do\s+almoco\b/, '13:00'],
+  [/\b(?:de|pela|na|durante\s+a|a)\s+manha\b/, '09:00'],
+  [/\b(?:de|pela|na|durante\s+a|a)\s+tarde\b/, '15:00'],
+  [/\b(?:de|pela|na|durante\s+a|a)\s+noite\b/, '19:00'],
+  [/\b(?:hoje|amanha)\s+(?=a\s+noite)/, null]   // (só para a ordem; "hoje" já sai na data)
+];
+function acharPeriodo(f) {
+  for (const [re, hora] of PERIODOS) {
+    if (!hora) continue;
+    const m = f.achar(re);
+    if (m) { f.marcar(m.index, m.index + m[0].length); return hora; }
+  }
+  return null;
+}
+
+/* "me avisa meia hora antes", "me lembra 2 horas antes", "com 15 minutos de antecedência",
+   "um dia antes". Devolve os minutos (ou null). Vem ANTES da hora: senão o "2 horas"
+   de "2 horas antes" vira 02:00. */
+function acharAntecedencia(f) {
+  const num = '(\\d{1,3}|' + Object.keys(NUMEROS_FALADOS).sort((a, b) => b.length - a.length).join('|') + ')';
+  const valorDe = t => /^\d/.test(t) ? +t : NUMEROS_FALADOS[t];
+  const pedido = '(?:(?:me\\s+)?(?:avis\\w*|lembr\\w*|notifi\\w*|chama\\w*)(?:-me)?\\s+)?(?:com\\s+)?';
+  const depois = '\\s+(?:antes|de\\s+antecedencia)\\b';
+  const tentativas = [
+    [new RegExp('\\b' + pedido + 'meia\\s+hora' + depois), () => 30],
+    [new RegExp('\\b' + pedido + '(?:uma\\s+)?hora\\s+e\\s+meia' + depois), () => 90],
+    [new RegExp('\\b' + pedido + '(?:um|1)\\s+dia' + depois), () => 1440],
+    [new RegExp('\\b' + pedido + num + '\\s*(horas?|hs?|minutos?|mins?|dias?)' + depois), m =>
+      /^d/.test(m[2]) ? valorDe(m[1]) * 1440 : /^m/.test(m[2]) ? valorDe(m[1]) : valorDe(m[1]) * 60],
+    [new RegExp('\\b' + pedido + '(?:uma\\s+)?hora' + depois), () => 60]
+  ];
+  for (const [re, minutos] of tentativas) {
+    const m = f.achar(re);
+    if (!m) continue;
+    const n = minutos(m);
+    if (!(n >= 1 && n <= 7 * 1440)) continue;
+    f.marcar(m.index, m.index + m[0].length);
+    return n;
+  }
+  return null;
+}
+
+/* Começo de frase falada que não é o assunto: "tenho médico" → "Médico",
+   "fui no mercado" → "Mercado", "vou buscar o menino" → "Buscar o menino",
+   "tô com consulta marcada" → "Consulta". */
+const MULETAS = ['eu','marquei','agendei','combinei','tenho','temos','tem','to','tou','estou','estarei','vou','vamos','irei','ir',
+                 'estar','fui','fomos','passei','ter','vai','teremos','hoje','agora'];
+function tirarMuletas(titulo, tipo) {
+  const partes = titulo.split(' ');
+  const nua = p => semAcento(p.replace(/[.,;:!?]+$/, ''));
+  let i = 0;
+  // Em tarefa, "ir ao correio" é a própria tarefa: o "ir" fica.
+  const muleta = w => MULETAS.includes(w) && !(tipo === 'tarefa' && (w === 'ir' || w === 'estar'));
+  while (i < partes.length - 1 && (muleta(nua(partes[i])) || (i > 0 && PREPOSICOES.includes(nua(partes[i])) && muleta(nua(partes[i - 1]))))) i++;
+  let s = partes.slice(i).join(' ').replace(/\s+marcad[ao]s?\b/i, '');
+  s = limparTitulo(s);
+  return s || titulo;
 }
 
 /* ---------- data ---------- */
@@ -358,6 +469,7 @@ function acharValor(f) {
       const v = numeroBR(m[1]);
       if (v !== null && v > 0) {
         f.marcar(m.index, m.index + m[0].length);
+        f.posValor = [m.index, m.index + m[0].length];
         return v;
       }
     }
@@ -459,7 +571,8 @@ function acharCategoria(texto, aprendidas, entrada) {
   const tabela = entrada ? CATEGORIAS_RECEITA : CATEGORIAS;
   for (const [cat, palavras] of Object.entries(tabela)) {
     for (const p of palavras) {
-      if (new RegExp('\\b' + p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b').test(t)) return cat;
+      // "pizzas", "remédios": o plural também conta.
+      if (new RegExp('\\b' + p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + 's?\\b').test(t)) return cat;
     }
   }
   return null;
@@ -495,10 +608,14 @@ function interpretar(textoOriginal, opcoes = {}) {
   const agora = opcoes.agora || new Date();
   const intervalo = acharIntervalo(f);
   if (intervalo) marcarPedidoDeAviso(f);
+  // "me avisa 2 horas antes" antes da hora e do daqui: senão o "2 horas" vira 02:00.
+  const antecedencia = intervalo ? null : acharAntecedencia(f);
   // "daqui a 40 minutos" antes da hora: senão o "2 horas" de "daqui a 2 horas" vira 02:00.
   const daqui = acharDaqui(f, agora);
   const hora = daqui ? daqui.hora : acharHora(f);
   const data = daqui ? daqui.data : acharData(f, hoje);
+  // "de manhã", "à noite": só quando não houve hora dita.
+  const periodo = (hora || daqui || intervalo) ? null : acharPeriodo(f);
   let valor = acharValor(f);
   if (parcelas && parcelas.parcela && valor === null) valor = Math.round(parcelas.parcela * parcelas.n * 100) / 100;
 
@@ -525,6 +642,11 @@ function interpretar(textoOriginal, opcoes = {}) {
     if (tarefaAcao && tarefaAcao.palavra === 'pagar') f.marcar(tarefaAcao.index, tarefaAcao.index + tarefaAcao.tamanho);
   }
 
+  // "depois do almoço ir no correio": período do dia é coisa a fazer, não anotação.
+  if (periodo && tipo === 'nota') tipo = 'tarefa';
+  // Tarefa com dinheiro ("pagar os 50 reais ao João"): o valor volta para o título.
+  if (f.posValor && tipo !== 'gasto' && tipo !== 'receita' && !parcelas && repete === null) f.desmarcar(...f.posValor);
+
   // Tira do título só o verbo que revelou a intenção — o resto do texto fica.
   const marcaVerbo = (tipo === 'receita' && receita) || (tipo === 'gasto' && gasto) ||
                      (['tarefa', 'compromisso', 'nota'].includes(tipo) && tarefaMeta) || null;
@@ -533,7 +655,8 @@ function interpretar(textoOriginal, opcoes = {}) {
   const sobra = f.sobra();
   // Se só sobrou o verbo (ex.: "salário 4200 todo dia 5"), o título é o próprio verbo/palavra.
   const soVerbo = marcaVerbo ? limparTitulo(textoOriginal.substr(marcaVerbo.index, marcaVerbo.tamanho)) : '';
-  const titulo = limparTitulo(sobra) || ((repete !== null || parcelas) && soVerbo) || ((daqui || intervalo) && 'Lembrete') || limparTitulo(textoOriginal) || 'Sem título';
+  let titulo = limparTitulo(sobra) || ((repete !== null || parcelas) && soVerbo) || ((daqui || intervalo) && 'Lembrete') || limparTitulo(textoOriginal) || 'Sem título';
+  if (tipo !== 'nota') titulo = tirarMuletas(titulo, tipo);
 
   const item = {
     tipo,
@@ -547,6 +670,10 @@ function interpretar(textoOriginal, opcoes = {}) {
   };
   // Hora contada a partir de agora: o aviso toca NA hora, sem antecedência.
   if (daqui) item.naHora = true;
+  // "à noite", "de manhã": hora de referência, e o aviso toca nela (não 1 h antes de um palpite).
+  if (periodo && (tipo === 'compromisso' || tipo === 'tarefa')) { item.hora = periodo; item.naHora = true; item.periodo = true; }
+  // "me avisa meia hora antes": só esse aviso, no lugar do padrão dos Ajustes.
+  if (antecedencia && (tipo === 'compromisso' || tipo === 'tarefa')) item.avisoAntes = antecedencia;
 
   // "12/03" dito em setembro, para algo que ainda vai acontecer, é do ano que vem.
   if (item.data && !daqui && !f.anoExplicito && (tipo === 'compromisso' || tipo === 'tarefa')) {

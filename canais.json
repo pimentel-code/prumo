@@ -9,11 +9,11 @@
     "notas": "Notificações só com a mensagem principal (o título) e os botões"
   },
   "teste": {
-    "codigo": 26,
+    "codigo": 27,
     "nativo": 18,
-    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.26/Prumo.apk",
-    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.26/miolo.zip",
-    "sha256": "0f71a9017bc2fde15f919c627ddef6f314f26c6e0901186da3c1968c44914d25",
-    "notas": "Notificações só com a mensagem principal (o título) e os botões"
+    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.27/Prumo.apk",
+    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.27/miolo.zip",
+    "sha256": "51ae0f7849c170dde6d61f6bf09dbaa902a8c9fd7b41a02ce45001ac6e85ffd8",
+    "notas": "Fale do seu jeito: entende frases naturais (às duas da tarde, 10 e meia, à noite, me avisa X antes) e compromisso avisa 1 h e 30 min antes"
   }
 }

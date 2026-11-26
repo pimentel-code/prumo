@@ -11,7 +11,8 @@ const PALAVRAS_ALARME = /\b(alarm\w*|despert\w*|acord\w*|me\s+cham[ae])\b/;
 const SO_ALARME = /^((bota|bote|botar|coloca|coloque|colocar|poe|ponha|por|liga|ligar|programa|programar|marca|marcar|cria|criar|um|uma|o|a|me|pra|pro|para|de|alarm\w*|despert\w*|acord\w*|cham[ae])\s*)+$/;
 const MAX_AVISOS = 150;         // o Android limita a 500 alarmes por app; os 150 mais próximos bastam
 const MAX_POR_SERIE = 48;       // "a cada 20 min": no máximo 48 avisos agendados de uma vez por item
-const HORA_SEM_HORARIO = 9;     // tarefa/compromisso sem hora: avisa às 9 da manhã do dia
+const HORA_SEM_HORARIO = 9;
+const PADRAO_ANTES = [60, 30];   // compromisso com hora: avisa 1 h antes e de novo 30 min antes     // tarefa/compromisso sem hora: avisa às 9 da manhã do dia
 const CANAL = 'avisos';
 const ID_REVISAO = 2;           // o lembrete de domingo ("3 coisas ficaram para trás")
 const HORA_REVISAO = 19;
@@ -54,37 +55,57 @@ const Avisos = {
     return item;
   },
 
-  minutosAntes() {
-    const m = Dados.carregar().avisoMinutos;
-    return (m === 0 || m) ? m : 30;
+  /* Quanto tempo antes avisar um compromisso com hora, em minutos — pode ser
+     mais de um. Padrão (pedido dele, 25/11/2026): 1 hora antes E 30 min antes.
+     Quem já tinha escolhido outro tempo (avisoMinutos, ≠ 30) continua com ele. */
+  antecedencias(item) {
+    if (item && item.avisoAntes != null) return [item.avisoAntes];      // "me avisa meia hora antes"
+    const e = Dados.carregar();
+    let l = e.avisosAntes;
+    if (!Array.isArray(l)) l = (e.avisoMinutos != null && e.avisoMinutos !== 30) ? [e.avisoMinutos] : PADRAO_ANTES;
+    l = [...new Set(l.map(Number).filter(n => n >= 0))].sort((a, b) => b - a);
+    return l.length ? l : [0];
   },
 
-  /* Quando o aviso deste item deve tocar (Date) — ou null se não tem aviso. */
-  quando(item, agora) {
+  /* O maior deles (o primeiro aviso) — para quem só aceita um número. */
+  minutosAntes(item) { return this.antecedencias(item)[0]; },
+
+  /* Todos os avisos deste item, do mais cedo ao mais tarde (lista de Date). */
+  horarios(item, agora) {
     agora = agora || new Date();
-    if (!item || item.feito || !item.data) return null;
-    if (item.tipo !== 'compromisso' && item.tipo !== 'tarefa') return null;
-    if (item.repetir) return this.serie(item, agora, 1)[0] || null;
+    if (!item || item.feito || !item.data) return [];
+    if (item.tipo !== 'compromisso' && item.tipo !== 'tarefa') return [];
+    if (item.repetir) return this.serie(item, agora, 1);
 
     if ((item.alarme || item.naHora) && item.hora) {                 // alarme toca na hora exata, sem antecedência
       const inicio = dataHoraDe(item);
-      return inicio > agora ? inicio : null;
+      return inicio > agora ? [inicio] : [];
     }
 
-    const adiado = (Dados.carregar().adiados || {})[item.id];
-    if (adiado && new Date(adiado) > agora) return new Date(adiado);
-
     const [a, m, d] = item.data.split('-').map(Number);
+    let lista;
     if (item.hora) {
       const [hh, mm] = item.hora.split(':').map(Number);
       const inicio = new Date(a, m - 1, d, hh, mm);
-      const aviso = new Date(inicio.getTime() - this.minutosAntes() * 60000);
-      if (aviso > agora) return aviso;
-      if (inicio > agora) return inicio;        // anotou em cima da hora: avisa na hora
-      return null;
+      lista = this.antecedencias(item).map(min => new Date(inicio.getTime() - min * 60000)).filter(t => t > agora);
+      if (!lista.length && inicio > agora) lista = [inicio];       // anotou em cima da hora: avisa na hora
+    } else {
+      const aviso = new Date(a, m - 1, d, HORA_SEM_HORARIO, 0);
+      lista = aviso > agora ? [aviso] : [];
     }
-    const aviso = new Date(a, m - 1, d, HORA_SEM_HORARIO, 0);
-    return aviso > agora ? aviso : null;
+
+    // "Adiar 10 min": o adiado entra no lugar do que tocou; os que vêm depois dele continuam.
+    const adiado = (Dados.carregar().adiados || {})[item.id];
+    if (adiado && new Date(adiado) > agora) {
+      const t = new Date(adiado);
+      lista = [t].concat(lista.filter(x => x - t > 60000));
+    }
+    return lista.sort((x, y) => x - y);
+  },
+
+  /* Quando o PRÓXIMO aviso deste item toca (Date) — ou null se não tem aviso. */
+  quando(item, agora) {
+    return this.horarios(item, agora)[0] || null;
   },
 
   /* "a cada 20 min": os próximos avisos da série, de data/hora até repetir.ate. */
@@ -137,8 +158,8 @@ const Avisos = {
         // Cada aviso da série com id próprio ("id#0", "id#1"...), para um não apagar o outro.
         this.serie(item, agora).forEach((hora, k) => lista.push({ item, hora, chave: item.id + '#' + k }));
       } else {
-        const hora = this.quando(item, agora);
-        if (hora) lista.push({ item, hora });
+        // Mais de um aviso por compromisso (1 h e 30 min antes): cada um com id próprio.
+        this.horarios(item, agora).forEach((hora, k) => lista.push(k ? { item, hora, chave: item.id + '@' + k } : { item, hora }));
       }
     }
     return lista

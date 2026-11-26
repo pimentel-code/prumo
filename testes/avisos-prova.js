@@ -19,8 +19,11 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
 
   const em3h = daqui(180);
   const c = novo({ tipo: 'compromisso', titulo: 'Dentista', data: iso(em3h), hora: hhmm(em3h) });
-  await prova('compromisso com hora avisa 30 min antes', () =>
-    Math.abs(Avisos.quando(c) - (dataHoraDe(c) - 30 * 60000)) < 1000);
+  await prova('compromisso com hora avisa 1 h antes e de novo 30 min antes (padrão)', () => {
+    const h = Avisos.horarios(c);
+    return h.length === 2 && Math.abs(h[0] - (dataHoraDe(c) - 60 * 60000)) < 1000 &&
+           Math.abs(h[1] - (dataHoraDe(c) - 30 * 60000)) < 1000;
+  });
 
   const t = novo({ tipo: 'tarefa', titulo: 'Pagar a luz', data: amanha() });
   await prova('tarefa sem hora avisa às 9h do dia', () => {
@@ -40,7 +43,10 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
   await prova('data passada não gera aviso', () => Avisos.quando(velho) === null);
 
   await Avisos.reagendarTudo();
-  await prova('agenda exatamente os 3 avisos futuros', () => deItens().length === 3);
+  await prova('agenda exatamente os 4 avisos futuros (2 do dentista)', () => deItens().length === 4);
+  await prova('os dois avisos do dentista têm ids diferentes', () => {
+    const d = agendados.filter(x => x.extra.id === c.id); return d.length === 2 && d[0].id !== d[1].id;
+  });
   await prova('aviso leva título, canal e o id do Prumo', () => {
     const n = agendados.find(x => x.extra.id === c.id);
     return n && n.title === 'Dentista' && n.channelId === 'avisos' && n.schedule.allowWhileIdle === true;
@@ -52,14 +58,21 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
 
   Dados.atualizar(t.id, { feito: true });
   await Avisos.reagendarTudo();
-  await prova('marcar como feito tira o aviso', () => deItens().length === 2 && !agendados.some(n => n.extra.id === t.id));
+  await prova('marcar como feito tira o aviso', () => deItens().length === 3 && !agendados.some(n => n.extra.id === t.id));
 
-  Dados.carregar().avisoMinutos = 60; Dados.salvar();
+  Dados.carregar().avisosAntes = [120]; Dados.salvar();
   await Avisos.reagendarTudo();
-  await prova('mudar para 1 h antes reagenda', () => {
-    const n = agendados.find(x => x.extra.id === c.id);
-    return Math.abs(new Date(n.schedule.at) - (dataHoraDe(c) - 60 * 60000)) < 1000;
+  await prova('escolher só 2 h antes reagenda (um aviso só)', () => {
+    const n = agendados.filter(x => x.extra.id === c.id);
+    return n.length === 1 && Math.abs(new Date(n[0].schedule.at) - (dataHoraDe(c) - 120 * 60000)) < 1000;
   });
+  delete Dados.carregar().avisosAntes; Dados.carregar().avisoMinutos = 10; Dados.salvar();
+  await prova('quem tinha escolhido outro tempo antes (10 min) continua com ele', () =>
+    Avisos.antecedencias().join() === '10');
+  Dados.carregar().avisoMinutos = 30;
+  await prova('quem estava no antigo padrão (30 min) passa para 1 h + 30 min', () =>
+    Avisos.antecedencias().join() === '60,30');
+  Dados.carregar().avisosAntes = [60]; Dados.salvar();
 
   Avisos.aoTocar({ actionId: 'adiar', notification: { extra: { id: perto.id } } });
   await Avisos.reagendarTudo();
@@ -133,7 +146,7 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
   await Avisos.lerEstadoAlarme();
   await prova('…e some dos Ajustes depois de liberado', () => !ajustesHTML().includes('data-acao="sobrepor"'));
   await prova('Ajustes no padrão: chaves liga/desliga e subpágina de avisos', () =>
-    ajustesHTML().includes('role="switch"') && subAjustesHTML('avisar-antes').includes('role="radio"'));
+    ajustesHTML().includes('role="switch"') && subAjustesHTML('avisar-antes').includes('role="checkbox"'));
   await Avisos.lerEstadoAlarme();
 
   const salvo = Dados.adicionar(a3);
@@ -196,14 +209,14 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
     Array.isArray(widget.proximos) && widget.proximos.some(p => p.titulo === 'Dentista'));
   await prova('widget conta o que está atrasado', () => widget.atrasados >= 1);
 
-  await prova('tutorial no app Android tem widget, lembrete repetido e atualização (12 telas)', () =>
-    Tutorial.telas().length === 12 && ['Anote sem abrir o app', 'Lembretes que repetem', 'Sempre atualizado', 'Toque na esfera e fale o que deseja']
+  await prova('tutorial no app Android tem widget, lembrete repetido, fale do seu jeito e atualização (13 telas)', () =>
+    Tutorial.telas().length === 13 && ['Anote sem abrir o app', 'Lembretes que repetem', 'Fale do seu jeito', 'Sempre atualizado', 'Toque na esfera e fale o que deseja']
       .every(t => Tutorial.telas().some(x => x.titulo === t)));
-  await prova('novidades: quem viu antes recebe as 3 telas novas; depois de ver, nenhuma', () => {
+  await prova('novidades: quem viu antes recebe as 4 telas novas; depois de ver, nenhuma', () => {
     localStorage.setItem(Tutorial.CHAVE, '1'); localStorage.removeItem(Tutorial.CHAVE_NOVIDADES);
     const antes = Tutorial.novidades().map(t => t.id).join(',');
     Tutorial.marcarVisto();
-    return antes === 'esfera,repete,atualiza' && Tutorial.novidades().length === 0;
+    return antes === 'esfera,repete,natural,atualiza' && Tutorial.novidades().length === 0;
   });
 
   falado = 'gastei 30 na padaria';
@@ -265,6 +278,36 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
     const ics = montarICS(Object.assign({ id: 'x' }, fr));
     return (ics.match(/BEGIN:VEVENT/g) || []).length === 9 && (ics.match(/BEGIN:VALARM/g) || []).length === 9 &&
            !ics.includes('PT160M') && ics.trim().endsWith('END:VCALENDAR');
+  });
+
+  // ---- 25/11/2026: dois avisos por padrão, "me avisa X antes" e "à noite" ----
+  delete Dados.carregar().avisosAntes; delete Dados.carregar().avisoMinutos; Dados.salvar();
+  const em5h = daqui(300);
+  const med = novo({ tipo: 'compromisso', titulo: 'Médico', data: iso(em5h), hora: hhmm(em5h) });
+  await Avisos.reagendarTudo();
+  await prova('padrão novo: o médico tem 2 notificações, 1 h e 30 min antes', () => {
+    const n = agendados.filter(x => x.extra.id === med.id).map(x => Math.round((dataHoraDe(med) - new Date(x.schedule.at)) / 60000)).sort((a, b) => b - a);
+    return n.join() === '60,30';
+  });
+  await prova('a frase do Ajustes diz "1 h e 30 min antes"', () => rotuloAntes(Avisos.antecedencias()) === '1 h e 30 min antes');
+  await prova('recado ao guardar cita os dois horários', () => /^Guardado\. Avisos .+ e às \d/.test(avisosGuardado(Avisos.horarios(med))));
+  Avisos.aoTocar({ actionId: 'adiar', notification: { extra: { id: med.id } } });
+  await prova('"Adiar 10 min" no 1º aviso não apaga o de 30 min antes', () => {
+    const h = Avisos.horarios(med);
+    return Math.abs(h[0] - daqui(10)) < 5000 && h.some(t => Math.abs(t - (dataHoraDe(med) - 30 * 60000)) < 1000);
+  });
+  const fala = Object.assign(interpretar('me avisa meia hora antes da consulta às ' + hhmm(em5h)), {});
+  const cons = novo(Object.assign({}, fala, { data: iso(em5h) }));
+  await prova('"me avisa meia hora antes": só esse aviso, no lugar do padrão', () => {
+    const h = Avisos.horarios(cons); return h.length === 1 && Math.abs(h[0] - (dataHoraDe(cons) - 30 * 60000)) < 1000;
+  });
+  const noite = novo(Object.assign(interpretar('amanhã à noite ligar pro João'), {}));
+  await prova('"amanhã à noite": avisa às 19h, na hora (não 1 h antes de um palpite)', () => {
+    const q = Avisos.quando(noite); return noite.hora === '19:00' && q.getHours() === 19 && q.getMinutes() === 0;
+  });
+  await prova('ICS do iPhone: compromisso com hora leva os 2 avisos (1 h e 30 min antes)', () => {
+    const ics = montarICS(med, Avisos.antecedencias(med));
+    return (ics.match(/BEGIN:VALARM/g) || []).length === 2 && ics.includes('TRIGGER;RELATED=START:-PT60M') && ics.includes('TRIGGER;RELATED=START:-PT30M');
   });
 
   permissao = 'denied'; Avisos.permitido = false;

@@ -45,7 +45,7 @@ function seloHTML(item) {
 function exemplos() {
   const base = [
     ['💸', 'paguei 45 no almoço'],
-    ['📅', 'dentista quinta 15h'],
+    ['📅', 'preciso estar às duas da tarde no médico'],
     ['✅', 'lembrar de pagar a luz amanhã'],
     ['💰', 'recebi 300 de serviço'],
     ['📝', 'anotar: senha do wi-fi é prumo123']
@@ -379,6 +379,15 @@ function renderConfirma() {
 
 /* O Prumo não toca alarme sozinho — quem avisa é o calendário do celular.
    Por isso, ao guardar algo com data, o caminho para o aviso aparece na hora. */
+/* "Guardado. Avisos hoje às 13:00 e às 13:30." — os horários do mesmo dia não repetem o dia. */
+function avisosGuardado(lista) {
+  if (lista.length < 2) return 'Guardado. Aviso ' + fmtQuandoAviso(lista[0]) + '.';
+  const partes = lista.map(fmtQuandoAviso);
+  const dia = partes[0].split(' às ')[0];
+  const resto = partes.slice(1).map(p => p.startsWith(dia + ' às ') ? 'às ' + p.split(' às ')[1] : p);
+  return 'Guardado. Avisos ' + partes[0] + (resto.length > 1 ? ', ' + resto.slice(0, -1).join(', ') : '') + ' e ' + resto[resto.length - 1] + '.';
+}
+
 function recadoHTML() {
   if (Avisos.nativo) {
     // App Android: o próprio Prumo avisa. Só conta quando vai tocar.
@@ -388,7 +397,8 @@ function recadoHTML() {
       : (Avisos.permitido === false && !item.alarme) ? 'Guardado, mas os avisos estão bloqueados no Android.'
       : item.repetir ? 'Guardado. ' + (item.alarme ? 'Alarme' : 'Aviso') + ' a cada ' + rotuloCada(item.repetir.cada) +
           ', ' + fmtQuandoAviso(quando).replace(' às ', ' das ') + ' até as ' + item.repetir.ate.slice(11, 16) + '.'
-      : (item.alarme ? 'Guardado. Alarme ' : 'Guardado. Aviso ') + fmtQuandoAviso(quando) + '.';
+      : item.alarme ? 'Guardado. Alarme ' + fmtQuandoAviso(quando) + '.'
+      : avisosGuardado(Avisos.horarios(item));
     const botao = (Avisos.permitido === false && !(item && item.alarme))
       ? `<button class="mini" data-acao="permitir-avisos">Liberar avisos</button>`
       : (item && item.alarme && quando && !Avisos.sobrepor)
@@ -905,7 +915,16 @@ function grupoAj(titulo, linhas, rodape) {
   return `${titulo ? `<div class="aj-cabeca">${titulo}</div>` : ''}<div class="aj-grupo">${l.join('')}</div>${rodape ? `<div class="aj-rodape">${rodape}</div>` : ''}`;
 }
 
-function rotuloMin(m) { return m === 0 ? 'Na hora' : m < 60 ? m + ' min antes' : (m / 60) + ' h antes'; }
+function rotuloMin(m) { return m === 0 ? 'Na hora' : m < 60 ? m + ' min antes' : m === 1440 ? '1 dia antes' : (m / 60) + ' h antes'; }
+/* [60, 30] → "1 h e 30 min antes"; [0] → "Na hora". */
+function rotuloAntes(lista) {
+  const curto = m => m === 0 ? 'na hora' : m < 60 ? m + ' min' : m === 1440 ? '1 dia' : (m / 60) + ' h';
+  const so = lista.filter(m => m > 0).map(curto);
+  let t = so.length > 1 ? so.slice(0, -1).join(', ') + ' e ' + so[so.length - 1] : (so[0] || '');
+  if (t) t += ' antes';
+  if (lista.includes(0)) t = t ? t + ' e na hora' : 'Na hora';
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
 function versaoApp() { return '1.' + Math.max(Miolo.versao || 0, (typeof Atualizacao !== 'undefined' && Atualizacao.instalado) || 0); }
 
 /* Abre os Ajustes (ou uma subpágina deles) em tela cheia. */
@@ -950,7 +969,7 @@ function ajustesHTML() {
       Avisos.permitido === false && linhaAj({ acao: 'permitir-avisos', icone: 'alerta', cor: 'vermelho',
         titulo: 'Liberar avisos', sub: '<span class="aj-alerta">O Android está bloqueando os avisos</span>' }),
       linhaAj({ acao: 'ajustes-sub', dados: ' data-sub="avisar-antes"', icone: 'sino', cor: 'laranja',
-                titulo: 'Avisar compromissos', valor: rotuloMin(Avisos.minutosAntes()) }),
+                titulo: 'Avisar compromissos', valor: rotuloAntes(Avisos.antecedencias()) }),
       linhaAj({ acao: 'revisao-semanal', dados: ` data-sim="${e.revisaoSemanal === false ? '1' : '0'}"`, icone: 'domingo', cor: 'azul',
                 titulo: 'Revisão de domingo', sub: 'Às 19h, lembra o que ficou para trás', chave: e.revisaoSemanal !== false }),
       linhaAj({ acao: 'testar-aviso', icone: 'testar', cor: 'verde', titulo: 'Testar aviso', sub: 'Chega em 10 segundos', seta: false })
@@ -1010,12 +1029,14 @@ function ajustesHTML() {
 
 function subAjustesHTML(sub) {
   if (sub === 'avisar-antes') {
-    const min = Avisos.minutosAntes();
-    return grupoAj('Compromisso com hora', [0, 10, 30, 60, 120].map(m =>
-      `<button type="button" class="aj-linha aj-opcao" data-acao="aviso-min" data-min="${m}" role="radio" aria-checked="${m === min}">
+    // Pode marcar mais de um (padrão: 1 h e 30 min antes).
+    const marcados = Avisos.antecedencias();
+    return grupoAj('Compromisso com hora', [0, 10, 30, 60, 120, 1440].map(m => {
+      const sim = marcados.includes(m);
+      return `<button type="button" class="aj-linha aj-opcao" data-acao="aviso-min" data-min="${m}" role="checkbox" aria-checked="${sim}">
          <span class="aj-texto"><span class="aj-titulo">${rotuloMin(m)}</span></span>
-         <span class="aj-radio${m === min ? ' marcado' : ''}" aria-hidden="true"></span></button>`),
-      'Compromisso sem hora avisa às 9h da manhã do dia.');
+         <span class="aj-radio caixa${sim ? ' marcado' : ''}" aria-hidden="true"></span></button>`;
+    }), 'Pode marcar mais de um: o Prumo avisa em cada um deles. Compromisso sem hora avisa às 9h da manhã do dia.');
   }
   if (sub === 'palavras') {
     const lista = Object.entries(Dados.carregar().aprendidas);
@@ -1255,7 +1276,7 @@ document.addEventListener('click', evento => {
   if (acao === 'abrir') return painelEditar(id);
   if (acao === 'calendario') {
     const item = Dados.itens().find(i => i.id === id);
-    return mandarParaCalendario(item, 30);
+    return mandarParaCalendario(item, Avisos.antecedencias(item));
   }
   if (acao === 'passados') { App.mostrarPassados = true; return render(); }
   if (acao === 'mes') {
@@ -1293,7 +1314,11 @@ document.addEventListener('click', evento => {
   if (acao === 'exportar') return exportarBackup();
   if (acao === 'importar') return importarBackup();
   if (acao === 'aviso-min') {
-    Dados.carregar().avisoMinutos = Number(alvo.dataset.min);
+    // Liga/desliga cada antecedência; sempre fica pelo menos uma marcada.
+    const m = Number(alvo.dataset.min), atuais = Avisos.antecedencias();
+    const lista = atuais.includes(m) ? atuais.filter(x => x !== m) : atuais.concat(m);
+    if (!lista.length) return;
+    Dados.carregar().avisosAntes = lista.sort((a, b) => b - a);
     Dados.salvar(); return painelAjustes();
   }
   if (acao === 'testar-aviso') return Avisos.testar();
