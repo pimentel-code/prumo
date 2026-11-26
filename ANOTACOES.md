@@ -379,3 +379,11 @@ O site (iPhone) continua igual, com o "Pôr no calendário".
   "📆 Repetir nos dias" em compromisso com hora. Lista: "🔁 de segunda a sexta". Recado: "Alarme de segunda a sexta às 04:45. O próximo: amanhã às 4:45."
 - iPhone (.ics): RRULE:FREQ=WEEKLY;BYDAY=… — o Calendário repete sozinho.
 - Provas: +15 frases em naturais.js (77), +8 em avisos-prova, +2 no navegador.
+
+## 25/11/2026 — apresentação atualizada (1.29, TESTE, só miolo)
+- Pedido dele: incluir as mudanças da 1.27/1.28 na apresentação, em tom profissional, objetivo e claro.
+- Telas (nova: 29, aparecem em "Novidades" para quem já viu): "Fale como falaria com alguém" (logo após "Ele entende
+  sozinho"; exemplos médico/João/mercado + horários dos períodos), "Avisos automáticos" (Android: 2 avisos, Ajustes,
+  "me avise 15 minutos antes", "me acorda às 6h") / "Avisos no calendário" (site), "Repetir nos dias da semana"
+  (letras dos dias, Feito = próxima vez, 6 semanas renovadas ao abrir). Removida a tela "Fale do seu jeito" (nova 27).
+- Android: 14 telas; site: 13. Novidades para quem viu antes da 1.19: capa + 6.

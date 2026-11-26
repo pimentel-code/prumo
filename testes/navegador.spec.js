@@ -310,9 +310,9 @@ test('o tutorial aparece na primeira vez e não volta depois', async ({ page }) 
 
   const tut = page.locator('#tutorial');
   await expect(tut).toBeVisible();
-  // No site são 12 telas (o widget é só do app Android).
+  // No site são 13 telas (o widget é só do app Android).
   const total = await page.locator('.tut-slide').count();
-  expect(total).toBe(12);
+  expect(total).toBe(13);
   await expect(page.locator('#tutPasso')).toHaveText('1 de ' + total);
 
   // Anda até o fim pelos botões, conferindo que cada tela chega.
@@ -359,7 +359,7 @@ test('o tutorial passa com o dedo e não rola a página de lado', async ({ page 
   await page.evaluate(() => localStorage.clear());
   await page.reload();
   await page.locator('#tutTrilho').evaluate(t => t.scrollTo({ left: t.clientWidth * 2 }));
-  await expect(page.locator('#tutPasso')).toHaveText('3 de 12');
+  await expect(page.locator('#tutPasso')).toHaveText('3 de 13');
   const folga = await page.evaluate(() =>
     document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(folga).toBeLessThanOrEqual(0);
@@ -584,12 +584,10 @@ test('quem já viu o tutorial recebe só as novidades, uma vez', async ({ page }
   const tut = page.locator('#tutorial');
   await expect(tut).toBeVisible();
   await expect(page.locator('.tut-slide h2').first()).toHaveText('Novidades do Prumo');
-  // No site: capa + esfera + lembretes que repetem + fale do seu jeito + atualização sozinha.
-  await expect(page.locator('.tut-slide')).toHaveCount(5);
-  await page.click('#tutProximo');
-  await page.click('#tutProximo');
+  // No site: capa + esfera + fale como falaria + avisos + que se repetem + lembretes a cada X + atualização sozinha.
+  await expect(page.locator('.tut-slide')).toHaveCount(7);
+  for (let k = 0; k < 5; k++) await page.click('#tutProximo');
   await expect(page.locator('.tut-repete-lista .tut-aviso')).not.toHaveCount(0);
-  await page.click('#tutProximo');
   await page.click('#tutProximo');
   await expect(page.locator('#tutProximo')).toHaveText('Entendi');
   await page.click('#tutProximo');
@@ -602,8 +600,8 @@ test('quem já viu o tutorial recebe só as novidades, uma vez', async ({ page }
 test('o "?" mostra a apresentação inteira com o selo "Novo" nas telas recentes', async ({ page }) => {
   await page.evaluate(() => localStorage.setItem('prumo.tutorial.novidades', '19'));
   await page.click('#btAjuda');
-  await expect(page.locator('.tut-slide')).toHaveCount(12);
-  await expect(page.locator('.tut-selo-novo')).toHaveCount(4);
+  await expect(page.locator('.tut-slide')).toHaveCount(13);
+  await expect(page.locator('.tut-selo-novo')).toHaveCount(6);
 });
 
 test('site sem reconhecimento de voz: tocar na esfera abre o teclado na caixa', async ({ page }) => {

@@ -859,3 +859,7 @@ body.hoje-vazio.com-esfera-hoje .esfera-hoje-texto { font-size: 16.5px; }
 .tut-atualiza-barra i { display: block; height: 100%; width: 0; background: var(--degrade-botao); border-radius: inherit; animation: barra-enche 3s ease-in-out infinite; }
 @keyframes barra-enche { 0% { width: 0; } 70%, 100% { width: 100%; } }
 .tut-atualiza small { color: var(--suave); font-size: 13px; }
+
+/* Apresentação: os dias da semana (tela "que se repetem") */
+.tut-dias { justify-content: center; margin: 12px 0; }
+.tut-dias .dia-sem { display: inline-flex; align-items: center; justify-content: center; cursor: default; }

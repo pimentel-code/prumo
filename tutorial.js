@@ -105,6 +105,17 @@ const Tutorial = {
         texto: 'Antes de guardar, o Prumo mostra <strong>o que entendeu</strong>. Se errar, toque no tipo certo. Corrigiu a categoria? Ele aprende para a próxima vez.'
       },
       {
+        id: 'natural', nova: 29,
+        arte: `<div class="tut-entende">
+                 ${linha('compromisso', SELO_TIPO.compromisso, 'preciso estar às duas da tarde no médico', 'Médico · hoje às 14:00', 'Agenda', 100)}
+                 ${linha('tarefa', SELO_TIPO.tarefa, 'hoje à noite ligar pro João', 'Ligar pro João · hoje às 19:00', 'Tarefa', 350)}
+                 ${linha('gasto', '🛒', 'fui no mercado e deu 230', 'R$ 230,00 · Mercado', 'Saiu', 600)}
+               </div>`,
+        titulo: 'Fale como falaria com alguém',
+        texto: 'Não é preciso usar comandos. O Prumo identifica <strong>dia, hora e valor</strong> na frase, inclusive “às duas da tarde”, “10 e meia” e “à noite”. ' +
+               'Se a frase indicar só o período, vale: manhã 9h, tarde 15h, noite 19h.'
+      },
+      {
         arte: `<div class="tut-entende">
                  ${linha('gasto', '📺', 'comprei a TV 1.200 em 10x', '10 × R$ 120,00, uma por mês', 'Parcelas', 100)}
                  ${linha('gasto', '🏠', 'aluguel 900 todo dia 5', 'volta todo mês até você pagar', 'Todo mês', 350)}
@@ -139,18 +150,36 @@ const Tutorial = {
                (nativo ? ' Aos <strong>domingos à noite</strong> o Prumo lembra você.' : '')
       },
       nativo ? {
+        id: 'avisos', nova: 29,
         arte: `<div class="tut-aviso" data-tipo="compromisso"><div class="selo"><span class="tut-sino">🔔</span></div>
-                 <div><strong>Dentista</strong><span>Hoje às 15:00</span></div><small>agora</small></div>
-               <div class="tut-aviso" data-tipo="tarefa"><div class="selo">⏰</div>
-                 <div><strong>Alarme · 06:00</strong><span>Toca até você parar</span></div><small>amanhã</small></div>`,
-        titulo: 'Avisos na hora certa',
-        texto: 'O Prumo <strong>avisa sozinho</strong>, mesmo com o celular bloqueado, e dá para responder no próprio aviso: <strong>Feito</strong>, <strong>Amanhã</strong> ou <strong>Paguei</strong>. Para despertar, escreva <strong>“me acorda às 6h”</strong> — ou, para todo dia útil, <strong>“alarme 4h45 de segunda a sexta”</strong>.'
+                 <div><strong>Médico</strong><span>Hoje às 14:00</span></div><small>13:00</small></div>
+               <div class="tut-aviso" data-tipo="compromisso"><div class="selo"><span class="tut-sino">🔔</span></div>
+                 <div><strong>Médico</strong><span>Hoje às 14:00</span></div><small>13:30</small></div>`,
+        titulo: 'Avisos automáticos',
+        texto: 'Compromisso com hora recebe <strong>dois avisos: 1 hora antes e 30 minutos antes</strong>, mesmo com o celular bloqueado. ' +
+               'Para mudar o padrão: <strong>⚙ Ajustes → Avisar compromissos</strong>. Para um compromisso só, diga na frase: <strong>“me avise 15 minutos antes”</strong>. ' +
+               'Para despertar, diga <strong>“me acorda às 6h”</strong>: toca como alarme até você parar.'
       } : {
+        id: 'avisos', nova: 29,
         arte: `<div class="tut-aviso" data-tipo="compromisso"><div class="selo"><span class="tut-sino">🔔</span></div>
-                 <div><strong>Dentista</strong><span>Hoje às 15:00 · Calendário</span></div><small>agora</small></div>
+                 <div><strong>Médico</strong><span>Hoje às 14:00 · Calendário</span></div><small>13:00</small></div>
                <button type="button" class="mini" tabindex="-1">Pôr no calendário</button>`,
-        titulo: 'Avisos na hora certa',
-        texto: 'Depois de anotar um compromisso, toque em <strong>“Pôr no calendário”</strong>: o calendário do celular avisa você na hora.'
+        titulo: 'Avisos no calendário',
+        texto: 'Depois de anotar, toque em <strong>“Pôr no calendário”</strong>. O compromisso entra no calendário do celular com <strong>dois avisos: 1 hora antes e 30 minutos antes</strong>.'
+      },
+      {
+        id: 'semana', nova: 29,
+        arte: `<div class="tut-repete">
+                 <div class="tut-repete-frase">“${nativo ? 'alarme às 4h45' : 'academia às 19h'} <b>de segunda a sexta</b>”</div>
+                 <div class="dias-semana tut-dias">${['S', 'T', 'Q', 'Q', 'S', 'S', 'D'].map((l, k) => `<span class="dia-sem${k < 5 ? ' ligado' : ''}">${l}</span>`).join('')}</div>
+                 <div class="tut-aviso" data-tipo="compromisso"><div class="selo">${nativo ? '⏰' : '🔁'}</div>
+                   <div><strong>${nativo ? 'Alarme · 04:45' : 'Academia · 19:00'}</strong><span>🔁 de segunda a sexta</span></div><small>amanhã</small></div>
+               </div>`,
+        titulo: 'Repetir nos dias da semana',
+        texto: 'Diga os dias na frase: <strong>“de segunda a sexta”</strong>, <strong>“todos os dias”</strong>, <strong>“fim de semana”</strong> ou <strong>“toda terça e quinta”</strong>. ' +
+               'Antes de guardar, toque nas letras para ajustar os dias. ' +
+               (nativo ? '<strong>Feito</strong> passa para a próxima vez; para encerrar, apague o item. Os alarmes ficam programados por 6 semanas e se renovam sempre que você abre o Prumo.'
+                       : 'O calendário do celular repete o compromisso toda semana.')
       },
       {
         id: 'repete', nova: 20,
@@ -164,18 +193,6 @@ const Tutorial = {
                        : 'põe um aviso para cada vez no calendário do celular.') +
                ' Vale por <strong>3 horas</strong>, ou diga até quando: <strong>“até as 18h”</strong>, <strong>“por 2 horas”</strong>, <strong>“o dia todo”</strong>.' +
                (nativo ? ' Quer som de despertador? Diga <strong>“alarme a cada 30 minutos”</strong>.' : '')
-      },
-      {
-        id: 'natural', nova: 27,
-        arte: `<div class="tut-repete">
-                 <div class="tut-repete-frase">“preciso estar <b>às duas da tarde</b> no médico”</div>
-                 <div class="tut-aviso" data-tipo="compromisso"><div class="selo"><span class="tut-sino">🔔</span></div>
-                   <div><strong>Médico</strong><span>Hoje às 14:00</span></div><small>13:00 · 13:30</small></div>
-               </div>`,
-        titulo: 'Fale do seu jeito',
-        texto: 'Não precisa falar como robô. <strong>“Amanhã tenho dentista às 10 e meia”</strong>, <strong>“hoje à noite ligar pro João”</strong>, <strong>“fui no mercado e deu 230”</strong>: o Prumo entende. ' +
-               (nativo ? 'Compromisso com hora avisa <strong>1 hora antes e de novo 30 minutos antes</strong> (dá para mudar em ⚙ Ajustes). Quer outro tempo só naquele? Diga <strong>“me avisa 15 minutos antes”</strong>.'
-                       : 'No calendário do celular, o compromisso já vai com aviso <strong>1 hora antes e 30 minutos antes</strong>.')
       },
       nativo ? {
         arte: `<div class="tut-widget">

@@ -9,11 +9,11 @@
     "notas": "Notificações só com a mensagem principal (o título) e os botões"
   },
   "teste": {
-    "codigo": 28,
+    "codigo": 29,
     "nativo": 18,
-    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.28/Prumo.apk",
-    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.28/miolo.zip",
-    "sha256": "cac20811c43b25280a773ac86f572f344935275d69a1982939609f606464fa85",
-    "notas": "Alarme e compromisso que repetem nos dias da semana: 'alarme 4h45 de segunda a sexta', 'toda segunda e quarta academia às 19h'"
+    "apk": "https://github.com/pimentel-code/prumo/releases/download/v1.29/Prumo.apk",
+    "miolo": "https://github.com/pimentel-code/prumo/releases/download/v1.29/miolo.zip",
+    "sha256": "f727832a089463a7c0b7e7d4c5789fdb5316cf7d5e737b68cd03782f36b04077",
+    "notas": "Apresentação atualizada: fala natural, avisos 1 h e 30 min antes e repetição nos dias da semana"
   }
 }

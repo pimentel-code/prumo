@@ -209,14 +209,14 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
     Array.isArray(widget.proximos) && widget.proximos.some(p => p.titulo === 'Dentista'));
   await prova('widget conta o que está atrasado', () => widget.atrasados >= 1);
 
-  await prova('tutorial no app Android tem widget, lembrete repetido, fale do seu jeito e atualização (13 telas)', () =>
-    Tutorial.telas().length === 13 && ['Anote sem abrir o app', 'Lembretes que repetem', 'Fale do seu jeito', 'Sempre atualizado', 'Toque na esfera e fale o que deseja']
+  await prova('tutorial no app Android tem widget, lembrete repetido, fale como falaria, avisos, que se repetem e atualização (14 telas)', () =>
+    Tutorial.telas().length === 14 && ['Anote sem abrir o app', 'Lembretes que repetem', 'Fale como falaria com alguém', 'Avisos automáticos', 'Repetir nos dias da semana', 'Sempre atualizado', 'Toque na esfera e fale o que deseja']
       .every(t => Tutorial.telas().some(x => x.titulo === t)));
-  await prova('novidades: quem viu antes recebe as 4 telas novas; depois de ver, nenhuma', () => {
+  await prova('novidades: quem viu antes recebe as 6 telas novas; depois de ver, nenhuma', () => {
     localStorage.setItem(Tutorial.CHAVE, '1'); localStorage.removeItem(Tutorial.CHAVE_NOVIDADES);
     const antes = Tutorial.novidades().map(t => t.id).join(',');
     Tutorial.marcarVisto();
-    return antes === 'esfera,repete,natural,atualiza' && Tutorial.novidades().length === 0;
+    return antes === 'esfera,natural,avisos,semana,repete,atualiza' && Tutorial.novidades().length === 0;
   });
 
   falado = 'gastei 30 na padaria';
