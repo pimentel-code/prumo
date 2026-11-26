@@ -387,3 +387,17 @@ O site (iPhone) continua igual, com o "Pôr no calendário".
   "me avise 15 minutos antes", "me acorda às 6h") / "Avisos no calendário" (site), "Repetir nos dias da semana"
   (letras dos dias, Feito = próxima vez, 6 semanas renovadas ao abrir). Removida a tela "Fale do seu jeito" (nova 27).
 - Android: 14 telas; site: 13. Novidades para quem viu antes da 1.19: capa + 6.
+
+## 25/11/2026 — vários horários na mesma frase, até 5 (1.30, TESTE, só miolo)
+- Pedido dele: "alarme para 4h45 e 4h55 de segunda a sexta"; depois: até 3 ou 5 horários → ficou MAX_HORAS = 5.
+- interpretador.js: acharMaisHoras junta horários VIZINHOS (só vírgula, "e" ou "também" entre eles), em ordem de posição;
+  "reunião às 14h e dentista às 16h" não junta (palavra no meio). item.hora = o mais cedo, item.maisHoras = os outros,
+  naHora = true (cada um toca na hora). Passou de 5: os excedentes são ignorados. "às 5, 5h10": o "às N" agora aceita vírgula
+  depois (só barra vírgula/ponto COLADOS em número: "às 5,50"). rotuloHoras(item) → "04:45, 04:55 e 05:05".
+- avisos.js: horasDe(item), ultimaHoraDe(item) (o dia só "acaba" depois do último horário — rolarSemanais e pularSemanal).
+  Um alarme por horário por dia; texto "Alarme das H:MM" sempre da própria hora. MAX_AVISOS 150 → 300 (5 × 6 semanas = 150 de um item só).
+- Confirmação/Editar: campos "e às" (data-hora-extra) + "➕ Outro horário" (some ao chegar a 5) + ✕ para tirar, sem re-render.
+  Lista: "⏰ 04:45, 04:55 e 05:05". Recado: "Alarmes amanhã às 04:45, 04:55 e 05:05." ou "… de segunda a sexta às …".
+- iPhone (.ics): um VEVENT por horário.
+- Apresentação: telas 'avisos' e 'semana' agora nova: 30 (exemplo "alarme às 4h45 e 4h55").
+- Provas: 87 frases naturais, +5 em avisos-prova, +1 no navegador (94 no total).

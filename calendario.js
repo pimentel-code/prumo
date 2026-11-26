@@ -26,6 +26,14 @@ function montarICS(item, minutosAntes) {
     }
     return embrulharICS(eventos);
   }
+  // Vários horários ("remédio às 8h, 14h e 20h"): um compromisso para cada um, cada um com seu aviso.
+  if (item.hora && item.maisHoras && item.maisHoras.length && !item.repetir) {
+    return embrulharICS([].concat(...horasDe(item).map((h, k) => {
+      const um = Object.assign({}, item, { hora: h, maisHoras: null, id: item.id + '-h' + k });
+      const ics = montarICS(um, minutosAntes).split('\r\n');
+      return ics.slice(ics.indexOf('BEGIN:VEVENT'), ics.lastIndexOf('END:VEVENT') + 1);
+    })));
+  }
   const [a, m, d] = item.data.split('-');
   if (item.hora) {
     const [hh, mm] = item.hora.split(':');

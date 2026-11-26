@@ -83,6 +83,17 @@ const NATURAIS = [
   ["às terças e quintas inglês às 18h", {"titulo":"Inglês","hora":"18:00","semana":[2,4],"data":"2026-11-26"}],
   ["toda sexta futebol às 20h", {"titulo":"Futebol","semana":[5],"data":"2026-11-27"}],
   ["segundas, quartas e sextas pilates às 7h", {"titulo":"Pilates","semana":[1,3,5],"data":"2026-11-27"}],
+  // vários horários na mesma frase (até 5)
+  ["alarme para 4h45 e 4h55 de segunda a sexta", {"titulo":"Alarme","hora":"04:45","maisHoras":["04:55"],"semana":[1,2,3,4,5],"data":"2026-11-26"}],
+  ["alarme às 4h45, 4h55 e 5h05 de segunda a sexta", {"hora":"04:45","maisHoras":["04:55","05:05"],"semana":[1,2,3,4,5]}],
+  ["me acorda às 5, 5h10, 5h20, 5h30 e 5h40", {"titulo":"Me acorda","hora":"05:00","maisHoras":["05:10","05:20","05:30","05:40"]}],
+  ["alarme 6h, 6h05, 6h10, 6h15, 6h20 e 6h25", {"hora":"06:00","maisHoras":["06:05","06:10","06:15","06:20"]}],
+  ["alarme às quatro e quarenta e cinco e às quatro e cinquenta e cinco de segunda a sexta", {"hora":"04:45","maisHoras":["04:55"]}],
+  ["despertador 4:45 e 4:55 dias úteis", {"hora":"04:45","maisHoras":["04:55"],"semana":[1,2,3,4,5]}],
+  ["alarme às 4h55 e 4h45", {"hora":"04:45","maisHoras":["04:55"]}],
+  ["tomar remédio às 8h, 14h e 20h todos os dias", {"titulo":"Tomar remédio","hora":"08:00","maisHoras":["14:00","20:00"],"naHora":true}],
+  ["reunião às 14h e dentista às 16h", {"hora":"14:00","maisHoras":undefined}],
+  ["almoço às 5,50", {"hora":null}],
   // um dia só NÃO repete
   ["dentista na sexta às 15h", {"titulo":"Dentista","data":"2026-11-27","hora":"15:00"}],
   ["pagar a luz segunda", {"tipo":"tarefa","data":"2026-11-30"}]

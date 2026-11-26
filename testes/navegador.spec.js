@@ -660,3 +660,21 @@ test('botão "Repetir nos dias" num compromisso com hora', async ({ page }) => {
   await guardar(page);
   await expect(page.locator('body')).toContainText('🔁 de segunda a sexta');
 });
+
+test('vários horários: "alarme às 4h45 e 4h55" mostra os dois, e dá para pôr mais (até 5)', async ({ page }) => {
+  await anotar(page, 'me lembra às 4h45 e 4h55 de segunda a sexta');
+  await expect(page.locator('#c_hora')).toHaveValue('04:45');
+  await expect(page.locator('[data-hora-extra="c_"]')).toHaveCount(1);
+  await expect(page.locator('[data-hora-extra="c_"]').first()).toHaveValue('04:55');
+  for (let k = 0; k < 3; k++) await page.click('[data-acao="add-hora"]');
+  await expect(page.locator('[data-hora-extra="c_"]')).toHaveCount(4);
+  await expect(page.locator('#c_addHoraLinha')).toBeHidden();          // 5 no total: o botão some
+  await page.locator('[data-hora-extra="c_"]').nth(1).fill('05:05');
+  await page.locator('.campo-hora-extra [data-acao="tirar-hora"]').nth(3).click();
+  await expect(page.locator('#c_addHoraLinha')).toBeVisible();
+  await guardar(page);
+  const it = await page.evaluate(() => Dados.itens().find(i => i.maisHoras));
+  expect(it.hora).toBe('04:45');
+  expect(it.maisHoras).toEqual(['04:55', '05:05']);
+  await expect(page.locator('body')).toContainText('04:45, 04:55 e 05:05');
+});

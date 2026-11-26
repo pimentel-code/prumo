@@ -282,7 +282,8 @@ function acharHora(f) {
     // "às duas", "as cinco no dentista" — por extenso, só com o "às" e sem um nome depois
     [new RegExp('\\bas\\s+(' + hp + ')(?:\\s+horas?)?' + fimSolto), m => [ajustar(valH(m[1]), null, true), 0]],
     // "às 8" — sem o "h". Último recurso, para não roubar número de valor.
-    [/\bas\s+([01]?\d|2[0-3])\b(?!\s*[\/.,:\d])/, m => [ajustar(+m[1], null, true), 0]]
+    // (vírgula/ponto só barram quando vem número colado: "às 5,50" é valor; "às 5, 5h10" é lista de horas)
+    [/\bas\s+([01]?\d|2[0-3])\b(?!\s*(?:[\/:\d]|[.,]\d))/, m => [ajustar(+m[1], null, true), 0]]
   ];
   for (const [re, extrair] of tentativas) {
     const m = f.achar(re);
@@ -292,10 +293,35 @@ function acharHora(f) {
       const [h, min] = r;
       if (h > 23 || min > 59) continue;
       f.marcar(m.index, m.index + m[0].length);
+      f.ultimaHora = [m.index, m.index + m[0].length];
       return comZero(h) + ':' + comZero(min);
     }
   }
   return null;
+}
+
+/* "alarme às 4h45, 4h55 e 5h05": horários em sequência, separados só por vírgula ou "e".
+   Até MAX_HORAS no total. "reunião às 14h e dentista às 16h" NÃO junta (tem palavra no meio). */
+const MAX_HORAS = 5;
+function acharMaisHoras(f) {
+  if (!f.ultimaHora) return [];
+  const achadas = [{ pos: f.ultimaHora, h: null }];                   // a primeira (já devolvida por acharHora)
+  for (let k = 0; k < 10; k++) {
+    const h = acharHora(f);
+    if (!h) break;
+    achadas.push({ pos: f.ultimaHora, h });
+  }
+  achadas.sort((x, y) => x.pos[0] - y.pos[0]);
+  // Grupo de horários vizinhos (só vírgula, "e" ou "também" entre eles) que contém a primeira.
+  const separador = (a, b) => /^\s*(?:,\s*)?(?:e\s+)?(?:tambem\s+)?$/.test(f.t.slice(a.pos[1], b.pos[0]));
+  const iPrim = achadas.findIndex(x => x.h === null);
+  let ini = iPrim, fim = iPrim;
+  while (ini > 0 && separador(achadas[ini - 1], achadas[ini])) ini--;
+  while (fim < achadas.length - 1 && separador(achadas[fim], achadas[fim + 1])) fim++;
+  achadas.forEach((x, k) => { if (k < ini || k > fim) f.desmarcar(x.pos[0], x.pos[1]); });   // fora do grupo: volta ao texto
+  const grupo = achadas.slice(ini, fim + 1);
+  for (let k = 1; k < grupo.length; k++) f.marcar(grupo[k - 1].pos[1], grupo[k].pos[0]);     // as vírgulas/"e" somem
+  return grupo.slice(0, MAX_HORAS).map(x => x.h);                    // null = a primeira (o chamador sabe qual é)
 }
 
 /* "de manhã", "à tarde", "hoje à noite", "amanhã cedo", "no fim da tarde", "na hora do almoço".
@@ -498,6 +524,12 @@ function proximaDaSemana(semana, hora, desde) {
   return null;
 }
 
+/* ["04:45","04:55","05:05"] → "04:45, 04:55 e 05:05". */
+function rotuloHoras(item) {
+  const l = [item.hora].concat(item.maisHoras || []).filter(Boolean);
+  return l.length > 1 ? l.slice(0, -1).join(', ') + ' e ' + l[l.length - 1] : (l[0] || '');
+}
+
 /* [1,2,3,4,5] → "de segunda a sexta"; [0..6] → "todo dia"; [0,6] → "fim de semana". */
 function rotuloSemana(semana) {
   const nomes = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
@@ -678,7 +710,16 @@ function interpretar(textoOriginal, opcoes = {}) {
   const antecedencia = intervalo ? null : acharAntecedencia(f);
   // "daqui a 40 minutos" antes da hora: senão o "2 horas" de "daqui a 2 horas" vira 02:00.
   const daqui = acharDaqui(f, agora);
-  const hora = daqui ? daqui.hora : acharHora(f);
+  let hora = daqui ? daqui.hora : acharHora(f);
+  // Vários horários na mesma frase (até 5): o primeiro vira a hora, os outros vão em maisHoras.
+  let maisHoras = [];
+  if (hora && !daqui) {
+    const grupo = acharMaisHoras(f).map(h => h === null ? hora : h);
+    if (grupo.length > 1) {
+      const todas = [...new Set(grupo)].sort();
+      hora = todas[0]; maisHoras = todas.slice(1);
+    }
+  }
   // "de segunda a sexta", "todo dia": antes da data, senão "segunda" vira um dia só.
   const semana = (daqui || intervalo || parcelas || repete !== null) ? null : acharSemana(f);
   const data = daqui ? daqui.data : acharData(f, hoje);
@@ -738,6 +779,8 @@ function interpretar(textoOriginal, opcoes = {}) {
   };
   // Hora contada a partir de agora: o aviso toca NA hora, sem antecedência.
   if (daqui) item.naHora = true;
+  // Vários horários = cada um toca na hora (remédio às 8h, 14h e 20h; alarme 4h45 e 4h55).
+  if (maisHoras.length && item.hora) { item.maisHoras = maisHoras; item.naHora = true; }
   // "à noite", "de manhã": hora de referência, e o aviso toca nela (não 1 h antes de um palpite).
   if (periodo && (tipo === 'compromisso' || tipo === 'tarefa')) { item.hora = periodo; item.naHora = true; item.periodo = true; }
   // "me avisa meia hora antes": só esse aviso, no lugar do padrão dos Ajustes.

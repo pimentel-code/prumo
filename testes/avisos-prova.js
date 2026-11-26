@@ -343,6 +343,33 @@ const novo = (o) => Dados.adicionar(Object.assign({ texto: '', valor: null, cate
   });
   Dados.remover(al.id); Dados.remover(aca.id);
 
+  // ---- vários horários no mesmo alarme (25/11/2026) ----
+  const v = novo(Avisos.ajustarAlarme(Object.assign(interpretar('alarme às 4h45, 4h55 e 5h05 de segunda a sexta'), {})));
+  await Avisos.reagendarTudo();
+  const dele = () => (globalThis.alarmes || []).filter(x => Avisos.horarios(v).some(t => t.getTime() === x.at));
+  await prova('"alarme às 4h45, 4h55 e 5h05 de segunda a sexta": os 3 horários em cada dia útil', () => {
+    const l = dele(), hm = new Set(l.map(x => { const d = new Date(x.at); return d.getHours() + ':' + d.getMinutes(); }));
+    return l.length >= 84 && l.length <= 93 && hm.size === 3 && hm.has('4:45') && hm.has('4:55') && hm.has('5:5') &&
+           l.every(x => ![0, 6].includes(new Date(x.at).getDay())) && new Set(l.map(x => x.id)).size === l.length;
+  });
+  await prova('cada alarme diz a própria hora ("Alarme das 4:55")', () => dele().some(x => x.texto === 'Alarme das 4:55'));
+  await prova('recado cita os três horários', () => {
+    App.recado = v.id; return recadoHTML().includes('04:45, 04:55 e 05:05');
+  });
+  App.recado = null;
+  // hoje, um horário já passou e o outro não: o dia continua sendo hoje
+  const agoraT = new Date(), cedo = new Date(agoraT.getTime() - 5 * 60000), tarde = new Date(agoraT.getTime() + 5 * 60000);
+  if (iso(cedo) === iso(agoraT) && iso(tarde) === iso(agoraT)) {
+    const hoje2 = novo({ tipo: 'compromisso', titulo: 'Dois', alarme: true, naHora: true, data: iso(agoraT), hora: hhmm(cedo), maisHoras: [hhmm(tarde)], semana: [0, 1, 2, 3, 4, 5, 6] });
+    Avisos.rolarSemanais();
+    await prova('passou o 1º horário mas falta o 2º: não pula para amanhã', () => Dados.itens().find(i => i.id === hoje2.id).data === iso(agoraT) &&
+      Avisos.quando(Dados.itens().find(i => i.id === hoje2.id)).getTime() === dataHoraDe({ data: iso(tarde), hora: hhmm(tarde) }).getTime());
+    Dados.remover(hoje2.id);
+  }
+  await prova('ICS do iPhone: remédio às 8h, 14h e 20h vira 3 compromissos', () =>
+    (montarICS(Object.assign({ id: 'r' }, interpretar('tomar remédio às 8h, 14h e 20h amanhã')), [60, 30]).match(/BEGIN:VEVENT/g) || []).length === 3);
+  Dados.remover(v.id);
+
   permissao = 'denied'; Avisos.permitido = false;
   await Avisos.reagendarTudo();
   await prova('sem permissão não agenda nada', () => agendados.length === 0);

@@ -150,7 +150,7 @@ const Tutorial = {
                (nativo ? ' Aos <strong>domingos à noite</strong> o Prumo lembra você.' : '')
       },
       nativo ? {
-        id: 'avisos', nova: 29,
+        id: 'avisos', nova: 30,
         arte: `<div class="tut-aviso" data-tipo="compromisso"><div class="selo"><span class="tut-sino">🔔</span></div>
                  <div><strong>Médico</strong><span>Hoje às 14:00</span></div><small>13:00</small></div>
                <div class="tut-aviso" data-tipo="compromisso"><div class="selo"><span class="tut-sino">🔔</span></div>
@@ -158,9 +158,9 @@ const Tutorial = {
         titulo: 'Avisos automáticos',
         texto: 'Compromisso com hora recebe <strong>dois avisos: 1 hora antes e 30 minutos antes</strong>, mesmo com o celular bloqueado. ' +
                'Para mudar o padrão: <strong>⚙ Ajustes → Avisar compromissos</strong>. Para um compromisso só, diga na frase: <strong>“me avise 15 minutos antes”</strong>. ' +
-               'Para despertar, diga <strong>“me acorda às 6h”</strong>: toca como alarme até você parar.'
+               'Para despertar, diga <strong>“me acorda às 6h”</strong>: toca como alarme até você parar. Aceita até 5 horários na mesma frase: <strong>“alarme às 4h45, 4h55 e 5h05”</strong>.'
       } : {
-        id: 'avisos', nova: 29,
+        id: 'avisos', nova: 30,
         arte: `<div class="tut-aviso" data-tipo="compromisso"><div class="selo"><span class="tut-sino">🔔</span></div>
                  <div><strong>Médico</strong><span>Hoje às 14:00 · Calendário</span></div><small>13:00</small></div>
                <button type="button" class="mini" tabindex="-1">Pôr no calendário</button>`,
@@ -168,12 +168,12 @@ const Tutorial = {
         texto: 'Depois de anotar, toque em <strong>“Pôr no calendário”</strong>. O compromisso entra no calendário do celular com <strong>dois avisos: 1 hora antes e 30 minutos antes</strong>.'
       },
       {
-        id: 'semana', nova: 29,
+        id: 'semana', nova: 30,
         arte: `<div class="tut-repete">
-                 <div class="tut-repete-frase">“${nativo ? 'alarme às 4h45' : 'academia às 19h'} <b>de segunda a sexta</b>”</div>
+                 <div class="tut-repete-frase">“${nativo ? 'alarme às 4h45 e 4h55' : 'academia às 19h'} <b>de segunda a sexta</b>”</div>
                  <div class="dias-semana tut-dias">${['S', 'T', 'Q', 'Q', 'S', 'S', 'D'].map((l, k) => `<span class="dia-sem${k < 5 ? ' ligado' : ''}">${l}</span>`).join('')}</div>
                  <div class="tut-aviso" data-tipo="compromisso"><div class="selo">${nativo ? '⏰' : '🔁'}</div>
-                   <div><strong>${nativo ? 'Alarme · 04:45' : 'Academia · 19:00'}</strong><span>🔁 de segunda a sexta</span></div><small>amanhã</small></div>
+                   <div><strong>${nativo ? 'Alarme · 04:45 e 04:55' : 'Academia · 19:00'}</strong><span>🔁 de segunda a sexta</span></div><small>amanhã</small></div>
                </div>`,
         titulo: 'Repetir nos dias da semana',
         texto: 'Diga os dias na frase: <strong>“de segunda a sexta”</strong>, <strong>“todos os dias”</strong>, <strong>“fim de semana”</strong> ou <strong>“toda terça e quinta”</strong>. ' +

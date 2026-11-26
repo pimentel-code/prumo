@@ -131,6 +131,8 @@ button { font: inherit; }
 }
 .sugestao:active { background: var(--acento-claro); border-color: var(--acento); }
 
+.hora-extra-linha { display: flex; align-items: center; gap: 8px; }
+.hora-extra-linha input { flex: 1; min-width: 0; }
 .dias-semana { display: flex; gap: 6px; flex-wrap: wrap; }
 .dia-sem {
   width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid #5c5a66; background: none;

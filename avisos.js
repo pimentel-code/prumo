@@ -9,12 +9,12 @@
    "bota o despertador pras 6", "me acorda às 5", "me chama às 7". */
 const PALAVRAS_ALARME = /\b(alarm\w*|despert\w*|acord\w*|me\s+cham[ae])\b/;
 const SO_ALARME = /^((bota|bote|botar|coloca|coloque|colocar|poe|ponha|por|liga|ligar|programa|programar|marca|marcar|cria|criar|um|uma|o|a|me|pra|pro|para|de|alarm\w*|despert\w*|acord\w*|cham[ae])\s*)+$/;
-const MAX_AVISOS = 150;         // o Android limita a 500 alarmes por app; os 150 mais próximos bastam
+const MAX_AVISOS = 300;         // o Android limita a 500 alarmes por app; os 300 mais próximos (5 horários × 6 semanas cabem)
 const MAX_POR_SERIE = 48;       // "a cada 20 min": no máximo 48 avisos agendados de uma vez por item
-const HORA_SEM_HORARIO = 9;
-const PADRAO_ANTES = [60, 30];
+const HORA_SEM_HORARIO = 9;      // tarefa/compromisso sem hora: avisa às 9 da manhã do dia
+const PADRAO_ANTES = [60, 30];   // compromisso com hora: avisa 1 h antes e de novo 30 min antes
 const DIAS_A_FRENTE = 42;        // "de segunda a sexta": agenda as próximas 6 semanas (renova toda vez que o app abre)
-const MAX_POR_SEMANA = 31;   // compromisso com hora: avisa 1 h antes e de novo 30 min antes     // tarefa/compromisso sem hora: avisa às 9 da manhã do dia
+const MAX_POR_SEMANA = 31;       // por horário: até 31 vezes agendadas de cada um
 const CANAL = 'avisos';
 const ID_REVISAO = 2;           // o lembrete de domingo ("3 coisas ficaram para trás")
 const HORA_REVISAO = 19;
@@ -50,7 +50,7 @@ const Avisos = {
     item.alarme = true;
     // "Alarma", "Bota um despertador", "Me acorda": título vira só "Alarme".
     if (SO_ALARME.test(semAcento(item.titulo || '').trim())) item.titulo = 'Alarme';
-    if (!item.semana && item.data === hojeISOAvisos() && dataHoraDe(item) <= new Date()) {
+    if (!item.semana && item.data === hojeISOAvisos() && ultimaHoraDe(item) <= new Date()) {
       const d = dataHoraDe(item); d.setDate(d.getDate() + 1);
       item.data = hojeISOAvisos(d);
     }
@@ -81,17 +81,23 @@ const Avisos = {
     if (item.semana && item.semana.length) return this.semanais(item, agora);
 
     if ((item.alarme || item.naHora) && item.hora) {                 // alarme toca na hora exata, sem antecedência
-      const inicio = dataHoraDe(item);
-      return inicio > agora ? [inicio] : [];
+      const adiadoN = (Dados.carregar().adiados || {})[item.id];       // (com vários horários, o adiado entra junto)
+      const l = horasDe(item).map(h => dataHoraDe(Object.assign({}, item, { hora: h }))).filter(t => t > agora);
+      if (adiadoN && new Date(adiadoN) > agora && item.maisHoras) l.push(new Date(adiadoN));
+      return l.sort((x, y) => x - y);
     }
 
     const [a, m, d] = item.data.split('-').map(Number);
     let lista;
     if (item.hora) {
-      const [hh, mm] = item.hora.split(':').map(Number);
-      const inicio = new Date(a, m - 1, d, hh, mm);
-      lista = this.antecedencias(item).map(min => new Date(inicio.getTime() - min * 60000)).filter(t => t > agora);
-      if (!lista.length && inicio > agora) lista = [inicio];       // anotou em cima da hora: avisa na hora
+      lista = [];
+      for (const h of horasDe(item)) {
+        const [hh, mm] = h.split(':').map(Number);
+        const inicio = new Date(a, m - 1, d, hh, mm);
+        const l = this.antecedencias(item).map(min => new Date(inicio.getTime() - min * 60000)).filter(t => t > agora);
+        if (!l.length && inicio > agora) l.push(inicio);            // anotou em cima da hora: avisa na hora
+        lista.push(...l);
+      }
     } else {
       const aviso = new Date(a, m - 1, d, HORA_SEM_HORARIO, 0);
       lista = aviso > agora ? [aviso] : [];
@@ -112,16 +118,22 @@ const Avisos = {
     const [a, m, d] = item.data.split('-').map(Number);
     const inicio = new Date(a, m - 1, d);
     const base = inicio > agora ? inicio : new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
-    const [hh, mm] = (item.hora || comZero(HORA_SEM_HORARIO) + ':00').split(':').map(Number);
+    const horas = item.hora ? horasDe(item) : [comZero(HORA_SEM_HORARIO) + ':00'];
     const antes = (item.alarme || item.naHora || !item.hora) ? [0] : this.antecedencias(item);
     const adiado = (Dados.carregar().adiados || {})[item.id];
     const lista = adiado && new Date(adiado) > agora ? [new Date(adiado)] : [];
-    for (let k = 0; k < DIAS_A_FRENTE && lista.length < MAX_POR_SEMANA; k++) {
-      const dia = new Date(base.getFullYear(), base.getMonth(), base.getDate() + k, hh, mm);
-      if (!item.semana.includes(dia.getDay())) continue;
-      for (const min of antes) {
-        const t = new Date(dia.getTime() - min * 60000);
-        if (t > agora) lista.push(t);
+    // Com vários horários, o limite é por horário (5 horários × 6 semanas de dias úteis = 150, o máximo do app).
+    const limite = MAX_POR_SEMANA * horas.length;
+    for (let k = 0; k < DIAS_A_FRENTE && lista.length < limite; k++) {
+      const base0 = new Date(base.getFullYear(), base.getMonth(), base.getDate() + k);
+      if (!item.semana.includes(base0.getDay())) continue;
+      for (const h of horas) {
+        const [hh, mm] = h.split(':').map(Number);
+        const dia = new Date(base0.getFullYear(), base0.getMonth(), base0.getDate(), hh, mm);
+        for (const min of antes) {
+          const t = new Date(dia.getTime() - min * 60000);
+          if (t > agora) lista.push(t);
+        }
       }
     }
     return lista.sort((x, y) => x - y);
@@ -134,7 +146,7 @@ const Avisos = {
     let mudou = false;
     for (const item of Dados.itens()) {
       if (!item.semana || !item.semana.length || item.feito || !item.data) continue;
-      const fim = item.hora ? dataHoraDe(item) : new Date(dataHoraDe(item).getTime() + 86399000);
+      const fim = item.hora ? ultimaHoraDe(item) : new Date(dataHoraDe(item).getTime() + 86399000);
       const diaCerto = item.semana.includes(dataHoraDe(item).getDay());
       if (fim > agora && diaCerto) continue;
       // Passou, ou caiu num dia fora da lista (mudou os dias no Editar): vai para a próxima vez.
@@ -148,7 +160,7 @@ const Avisos = {
 
   /* "Feito" num que repete: pula para a próxima vez, em vez de encerrar tudo. */
   pularSemanal(item) {
-    const depois = new Date(dataHoraDe(item).getTime() + 60000);
+    const depois = new Date(ultimaHoraDe(item).getTime() + 60000);
     const prox = proximaDaSemana(item.semana, item.hora, depois);
     if (prox) Dados.atualizar(item.id, { data: hojeISOAvisos(prox) });
   },
@@ -348,7 +360,7 @@ const Avisos = {
       const plano = this.plano();
       await this.nativoPrumo().definirAlarmes({ alarmes: plano.filter(x => x.item.alarme).map(({ item, hora, chave }) => ({
         id: this.numero(chave || item.id), at: hora.getTime(), titulo: item.titulo,
-        texto: 'Alarme das ' + (chave ? hora.getHours() + ':' + String(hora.getMinutes()).padStart(2, '0') : item.hora)
+        texto: 'Alarme das ' + hora.getHours() + ':' + String(hora.getMinutes()).padStart(2, '0')
       })) }).catch(e => console.warn('Avisos: alarmes falharam', e));
 
       const pendentes = await LN.getPending();
@@ -500,6 +512,16 @@ const Avisos = {
 function hojeISOAvisos(d) {
   d = d || new Date();
   return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+
+/* Todos os horários do item: o principal e os outros ("4h45, 4h55 e 5h05"). */
+function horasDe(item) {
+  return [item.hora].concat(item.maisHoras || []).filter(Boolean);
+}
+/* O último horário do dia (para saber quando aquele dia acabou). */
+function ultimaHoraDe(item) {
+  const h = horasDe(item);
+  return dataHoraDe(Object.assign({}, item, { hora: h[h.length - 1] || item.hora }));
 }
 
 function dataHoraDe(item) {

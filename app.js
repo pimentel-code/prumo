@@ -287,6 +287,7 @@ function camposHTML(item, p) {
   if (temHora) {
     h += `<div class="campo"><label for="${p}hora">Hora</label>
           <input id="${p}hora" type="time" value="${item.hora || ''}"></div>`;
+    h += camposMaisHoras(item, p);
     if (item.semana || p === 'e_') h += camposSemana(item, p);
     if (item.repetir || p === 'e_') h += camposRepetir(item, p);
     else if (item.hora) h += `<div class="extras">${item.semana ? '' : '<button type="button" class="mini" data-acao="add-semana">📆 Repetir nos dias</button>'}<button type="button" class="mini" data-acao="add-repetir">🔁 Lembrar várias vezes</button></div>`;
@@ -296,6 +297,22 @@ function camposHTML(item, p) {
     }
   }
   return h + '</div>';
+}
+
+/* Outros horários do mesmo alarme/lembrete ("4h45, 4h55 e 5h05"), até 5 no total.
+   "➕ Outro horário" põe mais um campo ali mesmo, sem perder o que já foi digitado. */
+const MAX_HORARIOS = 5;
+function campoHoraExtra(p, valor) {
+  return `<div class="campo campo-hora-extra"><label>e às</label><div class="hora-extra-linha">
+    <input type="time" data-hora-extra="${p}" value="${esc(valor || '')}">
+    <button type="button" class="icone-botao" data-acao="tirar-hora" aria-label="Tirar este horário">✕</button></div></div>`;
+}
+function camposMaisHoras(item, p) {
+  const mais = item.maisHoras || [];
+  let h = `<div id="${p}maisHoras">` + mais.map(v => campoHoraExtra(p, v)).join('') + '</div>';
+  if (item.hora || p === 'e_') h += `<div class="extras" id="${p}addHoraLinha"${1 + mais.length >= MAX_HORARIOS ? ' hidden' : ''}>
+    <button type="button" class="mini" data-acao="add-hora" data-p="${p}">➕ Outro horário</button></div>`;
+  return h;
 }
 
 /* "Repete": os dias da semana (D S T Q Q S S). Nenhum marcado = só uma vez. */
@@ -355,6 +372,13 @@ function lerCampos(item, p) {
       novo.naHora = true;
     } else novo.repetir = null;
   }
+  if (pega('maisHoras')) {
+    // Junta a hora principal com as outras, sem repetir, em ordem; a primeira vira a hora.
+    const extras = [...document.querySelectorAll(`[data-hora-extra="${p}"]`)].map(i => i.value).filter(Boolean);
+    const todas = [...new Set([novo.hora].concat(extras).filter(Boolean))].sort().slice(0, MAX_HORARIOS);
+    if (todas.length) novo.hora = todas[0];
+    if (todas.length > 1) { novo.maisHoras = todas.slice(1); novo.naHora = true; } else delete novo.maisHoras;
+  }
   if (pega('dias')) {
     const dias = [...pega('dias').querySelectorAll('.dia-sem.ligado')].map(b => Number(b.dataset.d)).sort((a, b) => a - b);
     if (dias.length) novo.semana = dias; else delete novo.semana;
@@ -412,7 +436,9 @@ function recadoHTML() {
       : item.repetir ? 'Guardado. ' + (item.alarme ? 'Alarme' : 'Aviso') + ' a cada ' + rotuloCada(item.repetir.cada) +
           ', ' + fmtQuandoAviso(quando).replace(' às ', ' das ') + ' até as ' + item.repetir.ate.slice(11, 16) + '.'
       : (item.semana && item.semana.length) ? 'Guardado. ' + (item.alarme ? 'Alarme' : 'Aviso') + ' ' + rotuloSemana(item.semana) +
-          (item.hora ? ' às ' + item.hora : '') + '. O próximo: ' + fmtQuandoAviso(quando) + '.'
+          (item.hora ? ' às ' + rotuloHoras(item) : '') + '. O próximo: ' + fmtQuandoAviso(quando) + '.'
+      : (item.maisHoras && item.maisHoras.length) ? 'Guardado. ' + (item.alarme ? 'Alarmes' : 'Avisos') + ' ' +
+          fmtQuandoAviso(quando).split(' às ')[0] + ' às ' + rotuloHoras(item) + '.'
       : item.alarme ? 'Guardado. Alarme ' + fmtQuandoAviso(quando) + '.'
       : avisosGuardado(Avisos.horarios(item));
     const botao = (Avisos.permitido === false && !(item && item.alarme))
@@ -529,6 +555,7 @@ function itemHTML(item, op) {
   }
 
   if (Avisos.nativo && op.calendario && Avisos.quando(item)) info.push((item.alarme ? '⏰ ' : '🔔 ') + esc(fmtQuandoAviso(Avisos.quando(item))));
+  if (item.maisHoras && item.maisHoras.length) info.push((item.alarme ? '⏰ ' : '🔔 ') + esc(rotuloHoras(item)));
   if (item.semana && item.semana.length) info.push('🔁 ' + esc(rotuloSemana(item.semana)));
   if (item.repetir && !item.feito && (!Avisos.nativo || Avisos.quando(item))) info.push('🔁 a cada ' + esc(rotuloCada(item.repetir.cada)) + ' até ' + esc(item.repetir.ate.slice(11, 16)));
   const calendario = (!Avisos.nativo && op.calendario && item.data && !item.feito && item.id !== App.recado)
@@ -1230,6 +1257,23 @@ document.addEventListener('click', evento => {
     App.rascunho = lerCampos(App.rascunho, 'c_');
     App.rascunho.semana = [1, 2, 3, 4, 5];
     renderConfirma(); return;
+  }
+  if (acao === 'add-hora') {                          // mais um campo de horário (até 5 no total)
+    const p = alvo.dataset.p, caixa = document.getElementById(p + 'maisHoras');
+    if (!caixa) return;
+    caixa.insertAdjacentHTML('beforeend', campoHoraExtra(p, ''));
+    const n = 1 + caixa.querySelectorAll('[data-hora-extra]').length;
+    if (n >= MAX_HORARIOS) document.getElementById(p + 'addHoraLinha').hidden = true;
+    const novos = caixa.querySelectorAll('[data-hora-extra]'); novos[novos.length - 1].focus();
+    return;
+  }
+  if (acao === 'tirar-hora') {
+    const campo = alvo.closest('.campo-hora-extra'), caixa = campo && campo.parentElement;
+    if (!campo) return;
+    const p = caixa.id.replace('maisHoras', '');
+    campo.remove();
+    const linha = document.getElementById(p + 'addHoraLinha'); if (linha) linha.hidden = false;
+    return;
   }
   if (acao === 'dia-semana') {                       // liga/desliga o dia ali mesmo, sem perder o que já foi digitado
     const liga = !alvo.classList.contains('ligado');
